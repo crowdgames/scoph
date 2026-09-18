@@ -17,18 +17,19 @@ fn test_parsing_loop() -> Result<()> {
     let mut loop_until_all = Node::new(NodeAction::LoopUntilAll);
     let mut player = Node::new(NodeAction::Player { pid: PlayerId("1".to_string()) });
 
-    let mut rewrite1 = Node::new(NodeAction::Rewrite { lhs: Pattern::filled("_", 1, 1), rhs: Pattern::filled("X", 1, 1) });
+    let rewrite1 = Node::new(NodeAction::Rewrite { lhs: Pattern::filled("_", 1, 1), rhs: Pattern::filled("X", 1, 1) });
     player.add_child(rewrite1);
-    let mut rewrite2 = Node::new(NodeAction::Rewrite { lhs: Pattern::filled("_", 1, 1), rhs: Pattern::filled("O", 1, 1) });
+    let rewrite2 = Node::new(NodeAction::Rewrite { lhs: Pattern::filled("_", 1, 1), rhs: Pattern::filled("O", 1, 1) });
     player.add_child(rewrite2);
 
     let mut match_loop = Node::new(NodeAction::LoopUntilAll);
     match_loop.add_child(Node::new(NodeAction::Match { pattern: Pattern::filled("O", 1, 1) }));
 
-    loop_until_all.add_child(match_loop);
     loop_until_all.add_child(player);
+    loop_until_all.add_child(match_loop);
 
     root.add_child(loop_until_all);
+    assert_eq!(doc.tree, root);
 
     Ok(())
 }
