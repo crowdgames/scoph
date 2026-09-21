@@ -536,6 +536,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+ "toodee",
 ]
 
 [[package]]
@@ -709,6 +710,15 @@ name = "tinyvec"
 version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
+
+[[package]]
+name = "toodee"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac7dddbb71918c441026f9db2cd675c31482a4be8186176fc3712bdef6a2d4ad"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "unicode-ident"

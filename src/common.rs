@@ -1,61 +1,13 @@
-use petgraph::Graph;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use serde_with::{NoneAsEmptyString, serde_as};
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TRRBTDocument {
-    pub name: String,
-    pub desc: String,
-    pub tree: Node,
-}
-
-#[serde_as]
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Node {
-    #[serde(default)]
-    #[serde_as(as = "NoneAsEmptyString")]
-    pub nid: Option<String>,
-
-    #[serde(default)]
-    #[serde_as(as = "NoneAsEmptyString")]
-    pub comment: Option<String>,
-
-    #[serde(default)]
-    children: Vec<Self>,
-
-    #[serde(flatten)]
-    pub action: NodeAction,
-}
-
-impl Node {
-    pub fn new(action: NodeAction) -> Self {
-        Self {
-            nid: None,
-            comment: None,
-            children: vec![],
-            action,
-        }
-    }
-
-    pub fn set_id(&mut self, id: &str) {
-        self.nid = Some(id.to_string());
-    }
-
-    pub fn add_child(&mut self, node: Node) {
-        self.children.push(node);
-    }
-
-    pub fn get_child(&self, i: usize) -> Option<&Self> {
-        self.children.get(i)
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PlayerId(pub String);
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Pattern {
+    // this just pulls straight from the JSON. Can be optimized,
+    // but we shall kick that can
     main: Vec<Vec<String>>,
 }
 
@@ -68,6 +20,23 @@ impl Pattern {
         let mut main = vec![vec![]; h];
         main.fill_with(|| vec![cell_pattern.to_string(); w]);
         Self { main }
+    }
+}
+
+#[serde_as]
+#[derive(Default, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Info {
+    #[serde_as(as = NoneAsEmptyString)]
+    #[serde(default)]
+    nid: Option<String>,
+    #[serde_as(as = NoneAsEmptyString)]
+    #[serde(default)]
+    comment: Option<String>,
+}
+
+impl Info {
+    pub fn set_id(&mut self, id: &str) {
+        self.nid = Some(id.to_string());
     }
 }
 
