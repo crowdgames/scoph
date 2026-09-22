@@ -1,7 +1,6 @@
 use anyhow::{Result, anyhow};
 use pretty_assertions::assert_eq;
-use scoph::common::*;
-use scoph::parse::*;
+use super::*;
 
 fn load_json_from_test(filename: &str) -> Result<TRRBTDocument> {
     let bytes = std::fs::read(&format!("games/trees/{filename}"))?;

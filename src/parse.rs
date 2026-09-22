@@ -3,6 +3,9 @@ use serde_with::{serde_as};
 
 use crate::{BehaviorTree, common::{Info, NodeAction, Pattern, PlayerId}};
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TRRBTDocument {
     pub name: String,
