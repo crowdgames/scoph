@@ -1,25 +1,57 @@
 use std::{collections::HashMap, marker::PhantomData, ops::Deref};
 
 use serde::{
-    Deserialize, Serialize, de::{DeserializeSeed, Deserializer, Visitor},
+    Deserialize, Serialize,
+    de::{DeserializeSeed, Deserializer, Visitor},
 };
 use serde_with::{NoneAsEmptyString, serde_as};
-use toodee::TooDee;
+use toodee::{TooDee, TooDeeOps};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PlayerId(pub String);
 
+impl From<&str> for PlayerId {
+    fn from(value: &str) -> Self {
+        Self(value.to_string())
+    }
+}
+
 type LayersAndPatterns = HashMap<String, TooDee<String>>;
 
+pub fn toodee_pattern<'a, const N: usize>(width: usize, height: usize, flat_cells: [&'a str; N]) -> TooDee<String>
+{
+    let v: Vec<_> = flat_cells.iter().map(ToString::to_string).collect();
+    TooDee::from_vec(width, height, v)
+}
+
 #[derive(Debug, Default, Clone, Serialize, PartialEq, Eq)]
-pub struct TRRBTPattern(
-    LayersAndPatterns
-);
+pub struct TRRBTPattern(LayersAndPatterns);
 
 impl TRRBTPattern {
     pub fn filled(cell: &str, width: usize, height: usize) -> Self {
         let mut core = LayersAndPatterns::new();
-        core.insert("main".to_string(), TooDee::init(width, height, cell.to_string()));
+        core.insert(
+            "main".to_string(),
+            TooDee::init(width, height, cell.to_string()),
+        );
+        Self(core)
+    }
+
+    /// Returns an iterator of the layer names and an iterator of their rows on the board
+    pub fn layers(&self) -> impl Iterator<Item = (&str, impl Iterator<Item = &[String]>)> {
+        self.0
+            .iter()
+            .map(|(layer_name, board)| (layer_name.as_str(), board.rows()))
+    }
+}
+
+impl<'a, const N: usize> From<[(&'a str, TooDee<String>); N]> for TRRBTPattern
+{
+    fn from(value: [(&'a str, TooDee<String>); N]) -> Self {
+        let mut core = LayersAndPatterns::new();
+        for (key, value) in value {
+            core.insert(key.to_string(), value);
+        }
         Self(core)
     }
 }
@@ -36,7 +68,8 @@ impl<'de> Deserialize<'de> for TRRBTPattern {
 
             fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
             where
-                D: Deserializer<'de> {
+                D: Deserializer<'de>,
+            {
                 deserialize_2d_array(deserializer)
             }
         }

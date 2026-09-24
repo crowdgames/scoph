@@ -1,6 +1,9 @@
+use crate::{
+    common::{Info, NodeAction},
+    parse::{Node, TRRBTDocument},
+};
+use anyhow::anyhow;
 use petgraph::graph::{DiGraph, NodeIndex};
-
-use crate::{common::{Info, NodeAction}, parse::{Node, TRRBTDocument}};
 
 pub struct BehaviorNode {
     info: Info,
@@ -23,11 +26,20 @@ pub struct BehaviorTree {
 }
 
 impl BehaviorTree {
-    fn name(&self) -> &str {
+    pub fn load_from_json_file(path: &str) -> anyhow::Result<Self> {
+        let s = std::fs::read_to_string(path)?;
+        Self::load_from_json_text(s.as_str()).map_err(|e| anyhow!("{}", e))
+    }
+
+    pub fn load_from_json_text(text: &str) -> serde_json::Result<Self> {
+        serde_json::from_str(text).map(|t: TRRBTDocument| t.into())
+    }
+
+    pub fn name(&self) -> &str {
         self.name.as_str()
     }
 
-    fn description(&self) -> &str {
+    pub fn description(&self) -> &str {
         self.desc.as_str()
     }
 
@@ -86,3 +98,67 @@ impl From<TRRBTDocument> for BehaviorTree {
     }
 }
 
+#[cfg(test)]
+mod test {
+    use crate::common::{TRRBTPattern, toodee_pattern};
+
+    use super::*;
+    use anyhow::Result;
+    use toodee::TooDee;
+
+    #[test]
+    fn test_loading_from_text() -> Result<()> {
+        const SIMPLE_GAME: &str = r#"{
+            "name" : "A simple game",
+            "desc" : "From a simpler time",
+            "tree": {
+                "type" : "loop-until-all",
+                "nid" : "",
+                "comment" : "A lame one-node loop",
+                "children" : [ 
+                    {
+                        "type" : "set-board",
+                        "nid": "",
+                        "comment": "",
+                        "pattern" : { 
+                            "main" : [
+                                ["A", "B", "C"],
+                                ["D", "E", "F"],
+                                ["G", "H", "I"]
+                            ] 
+                        }
+                    }
+                ]
+            }
+        }"#;
+
+        let behavior_tree = BehaviorTree::load_from_json_text(SIMPLE_GAME)?;
+        assert_eq!(behavior_tree.name(), "A simple game");
+        assert_eq!(behavior_tree.description(), "From a simpler time");
+
+        let map_to_node_action = |n: NodeIndex| behavior_tree.get_node_action(n);
+
+        let root = behavior_tree.root();
+        assert_eq!(
+            behavior_tree.get_node_action(root),
+            &NodeAction::LoopUntilAll
+        );
+
+        let mut neighbors = behavior_tree.get_node_neighbors(root);
+        assert_eq!(
+            neighbors.next().map(map_to_node_action),
+            Some(&NodeAction::SetBoard {
+                pattern: TRRBTPattern::from([(
+                    "main",
+                    toodee_pattern(
+                        3,
+                        3,
+                        ["A", "B", "C", "D", "E", "F", "G", "H", "I"]
+                    )
+                ),])
+            })
+        );
+
+        Ok(())
+    }
+}

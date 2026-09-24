@@ -1,8 +1,7 @@
 mod tree;
 
 use petgraph::graph::NodeIndex;
-use toodee::TooDee;
-use tree::BehaviorTree;
+pub use tree::BehaviorTree;
 
 use crate::common::{NodeAction, TRRBTPattern};
 
@@ -20,10 +19,46 @@ struct Call {
     state: StackState,
 }
 
-enum Evaluation {
-    Finished(bool),
-    Push(NodeIndex),
+/// Allows users to view into an interpreter's current state as it runs
+pub trait Visitor {
+    /// Provides the name and description of the tree to be displayed however deemed fit.
+    fn startup(&mut self, tree_name: &str, tree_description: &str) {
+        println!("= Name: ===============");
+        println!("{tree_name}");
+        println!("= Description: =========");
+        println!("{tree_description}");
+    }
+
+    /// Provides a look into the current state of the tile map.
+    fn view_board(&mut self, board: &TRRBTPattern) {
+        for (layer_name, layer_rows) in board.layers() {
+            println!("= {layer_name} ===========");
+            for row in layer_rows {
+                for cell in row {
+                    print!("{} ", cell);
+                }
+                println!("");
+            }
+        }
+    }
+
+    /// Prints out the current call stack. By default prints to stdout.
+    fn stack_trace(&mut self, tree: &BehaviorTree, call_stack: &[Call]) {
+        for (frame_index, call) in call_stack.iter().enumerate() {
+            println!("= {frame_index} ====================");
+            println!("| {:?}", tree.get_node_action(call.node_index));
+
+            let child_count = tree.get_node_neighbors(call.node_index).count();
+            if child_count > 0 {
+                println!("| child index: {} out of {}", call.child, child_count);
+            }
+        }
+    }
 }
+
+/// Default visitor that prints to stdout
+pub struct Printer;
+impl Visitor for Printer {}
 
 pub struct Interpreter {
     tree: BehaviorTree,
@@ -63,7 +98,8 @@ impl Interpreter {
         });
     }
 
-    pub fn run(&mut self) {
+    pub fn run<V: Visitor>(&mut self, visitor: &mut V) {
+        visitor.startup(self.tree.name(), self.tree.description());
         while !self.call_stack.is_empty() {
             let mut call_result = None;
             if let Some(call) = self.call_stack.iter_mut().last() {
@@ -92,6 +128,8 @@ impl Interpreter {
                     }
                 }
             }
+
+            visitor.view_board(&self.board);
         }
     }
 }
