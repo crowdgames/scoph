@@ -1,37 +1,77 @@
-use std::marker::PhantomData;
+use std::{collections::HashMap, marker::PhantomData, ops::Deref};
 
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize, Serialize, de::{DeserializeSeed, Deserializer, Visitor},
+};
 use serde_with::{NoneAsEmptyString, serde_as};
 use toodee::TooDee;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PlayerId(pub String);
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Pattern {
-    // this just pulls straight from the JSON. Can be optimized,
-    // but we shall kick that can
-    #[serde(deserialize_with = "deserialize_2d_array")]
-    main: TooDee<String>,
+type LayersAndPatterns = HashMap<String, TooDee<String>>;
+
+#[derive(Debug, Default, Clone, Serialize, PartialEq, Eq)]
+pub struct TRRBTPattern(
+    LayersAndPatterns
+);
+
+impl TRRBTPattern {
+    pub fn filled(cell: &str, width: usize, height: usize) -> Self {
+        let mut core = LayersAndPatterns::new();
+        core.insert("main".to_string(), TooDee::init(width, height, cell.to_string()));
+        Self(core)
+    }
 }
 
-impl Pattern {
-    // mainly for testing
-    pub fn filled(cell: &str, width: usize, height: usize) -> Self {
-        Self {
-            main: TooDee::init(width, height, cell.to_string()),
+impl<'de> Deserialize<'de> for TRRBTPattern {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct PatternText;
+
+        impl<'de> DeserializeSeed<'de> for PatternText {
+            type Value = TooDee<String>;
+
+            fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: Deserializer<'de> {
+                deserialize_2d_array(deserializer)
+            }
         }
+
+        struct TRRBTPatternVisitor;
+
+        impl<'de> Visitor<'de> for TRRBTPatternVisitor {
+            type Value = TRRBTPattern;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(formatter, "A map of 2D arrays")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let mut layers_and_patterns = LayersAndPatterns::new();
+                while let Some(layer_name) = map.next_key()? {
+                    layers_and_patterns.insert(layer_name, map.next_value_seed(PatternText)?);
+                }
+
+                Ok(TRRBTPattern(layers_and_patterns))
+            }
+        }
+
+        deserializer.deserialize_map(TRRBTPatternVisitor)
     }
 }
 
 fn deserialize_2d_array<'de, T, D>(deserializer: D) -> Result<TooDee<T>, D::Error>
 where
     T: Deserialize<'de>,
-    D: serde::de::Deserializer<'de>,
+    D: Deserializer<'de>,
 {
-    use serde::de::Deserializer;
-    use serde::de::Visitor;
-
     struct TooDeeRow<'a, T: 'a>(&'a mut Vec<T>);
     impl<'de, 'a, T> serde::de::DeserializeSeed<'de> for TooDeeRow<'a, T>
     where
@@ -207,21 +247,21 @@ pub enum NodeAction {
 
     // Rewrite nodes,
     SetBoard {
-        pattern: Pattern,
+        pattern: TRRBTPattern,
     },
     AppendRows {
-        pattern: Pattern,
+        pattern: TRRBTPattern,
     },
     AppendColumns {
-        pattern: Pattern,
+        pattern: TRRBTPattern,
     },
     Rewrite {
-        lhs: Pattern,
-        rhs: Pattern,
+        lhs: TRRBTPattern,
+        rhs: TRRBTPattern,
     },
     RewriteAll {
-        lhs: Pattern,
-        rhs: Pattern,
+        lhs: TRRBTPattern,
+        rhs: TRRBTPattern,
     },
     LayerTemplate {
         layer: String,
@@ -230,12 +270,12 @@ pub enum NodeAction {
 
     // Condition Nodes,
     Match {
-        pattern: Pattern,
+        pattern: TRRBTPattern,
     },
     MatchTimes {
         #[serde(default = "one_times")]
         times: u32,
-        pattern: Pattern,
+        pattern: TRRBTPattern,
     },
 }
 

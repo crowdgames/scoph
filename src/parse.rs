@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as};
+use serde_with::serde_as;
 
-use crate::{BehaviorTree, common::{Info, NodeAction, Pattern, PlayerId}};
+use crate::common::{Info, NodeAction};
 
 #[cfg(test)]
 mod tests;
@@ -47,6 +47,3 @@ impl Node {
         self.children.get(i)
     }
 }
-
-
-

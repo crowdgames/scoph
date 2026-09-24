@@ -1,6 +1,7 @@
+use super::*;
 use anyhow::{Result, anyhow};
 use pretty_assertions::assert_eq;
-use super::*;
+use crate::common::*;
 
 fn load_json_from_test(filename: &str) -> Result<TRRBTDocument> {
     let bytes = std::fs::read(&format!("games/trees/{filename}"))?;
@@ -13,17 +14,29 @@ fn test_parsing_loop() -> Result<()> {
     assert_eq!(doc.name, "loop");
 
     let mut root = Node::new(NodeAction::Order);
-    root.add_child(Node::new(NodeAction::SetBoard { pattern: Pattern::filled("_", 3, 1) }));
+    root.add_child(Node::new(NodeAction::SetBoard {
+        pattern: TRRBTPattern::filled("_", 3, 1),
+    }));
     let mut loop_until_all = Node::new(NodeAction::LoopUntilAll);
-    let mut player = Node::new(NodeAction::Player { pid: PlayerId("1".to_string()) });
+    let mut player = Node::new(NodeAction::Player {
+        pid: PlayerId("1".to_string()),
+    });
 
-    let rewrite1 = Node::new(NodeAction::Rewrite { lhs: Pattern::filled("_", 1, 1), rhs: Pattern::filled("X", 1, 1) });
+    let rewrite1 = Node::new(NodeAction::Rewrite {
+        lhs: TRRBTPattern::filled("_", 1, 1),
+        rhs: TRRBTPattern::filled("X", 1, 1),
+    });
     player.add_child(rewrite1);
-    let rewrite2 = Node::new(NodeAction::Rewrite { lhs: Pattern::filled("_", 1, 1), rhs: Pattern::filled("O", 1, 1) });
+    let rewrite2 = Node::new(NodeAction::Rewrite {
+        lhs: TRRBTPattern::filled("_", 1, 1),
+        rhs: TRRBTPattern::filled("O", 1, 1),
+    });
     player.add_child(rewrite2);
 
     let mut match_loop = Node::new(NodeAction::LoopUntilAll);
-    match_loop.add_child(Node::new(NodeAction::Match { pattern: Pattern::filled("O", 1, 1) }));
+    match_loop.add_child(Node::new(NodeAction::Match {
+        pattern: TRRBTPattern::filled("O", 1, 1),
+    }));
 
     loop_until_all.add_child(player);
     loop_until_all.add_child(match_loop);
@@ -42,7 +55,7 @@ fn test_parsing_tic_tac_toe() -> Result<()> {
     let mut root = Node::new(NodeAction::Order);
 
     let initial_board = Node::new(NodeAction::SetBoard {
-        pattern: Pattern::filled("_", 3, 3),
+        pattern: TRRBTPattern::filled("_", 3, 3),
     });
     root.add_child(initial_board);
 
@@ -56,8 +69,8 @@ fn test_parsing_tic_tac_toe() -> Result<()> {
         pid: PlayerId("X".to_string()),
     });
     let player_rewrite = Node::new(NodeAction::Rewrite {
-        lhs: Pattern::filled("_", 1, 1),
-        rhs: Pattern::filled("X", 1, 1),
+        lhs: TRRBTPattern::filled("_", 1, 1),
+        rhs: TRRBTPattern::filled("X", 1, 1),
     });
     player_node.add_child(player_rewrite);
     x_ident.add_child(player_node);
@@ -68,7 +81,7 @@ fn test_parsing_tic_tac_toe() -> Result<()> {
     let mut player_x_rotate = Node::new(NodeAction::default_x_rotate());
     let mut player_x_skew = Node::new(NodeAction::default_x_skew());
     let initial_win_match = Node::new(NodeAction::Match {
-        pattern: Pattern::filled("X", 3, 1),
+        pattern: TRRBTPattern::filled("X", 3, 1),
     });
 
     player_x_skew.add_child(initial_win_match);
@@ -79,7 +92,7 @@ fn test_parsing_tic_tac_toe() -> Result<()> {
     let mut draw = Node::new(NodeAction::Draw);
     let mut none = Node::new(NodeAction::None);
     let draw_match = Node::new(NodeAction::Match {
-        pattern: Pattern::filled("_", 1, 1),
+        pattern: TRRBTPattern::filled("_", 1, 1),
     });
     none.add_child(draw_match);
     draw.add_child(none);
