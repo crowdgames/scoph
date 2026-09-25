@@ -105,7 +105,14 @@ impl Interpreter {
             if let Some(call) = self.call_stack.iter_mut().last() {
                 use NodeAction::*;
                 match self.tree.get_node_action(call.node_index) {
-                    LoopUntilAll => todo!(),
+                    LoopUntilAll => {
+                        let push_node_index = self.tree.get_node_neighbors(call.node_index).nth(call.child as usize);
+                        if let Some(push_node_index) = push_node_index {
+                            self.push_call(push_node_index);
+                        } else {
+                            // TODO: make an exception/error raising system
+                        }
+                    }
                     SetBoard { pattern } => {
                         self.board = (*pattern).clone();
                         call_result = Some(true);
@@ -121,9 +128,14 @@ impl Interpreter {
                 if let Some(call) = self.call_stack.iter_mut().last() {
                     match call.state {
                         StackState::LoopUntilAll {
-                            any_success,
-                            all_failed,
-                        } => todo!(),
+                            ref mut any_success,
+                            ref mut all_failed,
+                        } => {
+                            if did_succeed {
+                                *any_success = true;
+                                *all_failed = false;
+                            }
+                        }
                         _ => {}
                     }
                 }
