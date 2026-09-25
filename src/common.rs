@@ -5,7 +5,7 @@ use serde::{
     de::{DeserializeSeed, Deserializer, Visitor},
 };
 use serde_with::{NoneAsEmptyString, serde_as};
-use toodee::{TooDee, TooDeeOps};
+use toodee::{CopyOps, TooDee, TooDeeOps, TooDeeOpsMut, TooDeeViewMut};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PlayerId(pub String);
@@ -18,10 +18,21 @@ impl From<&str> for PlayerId {
 
 type LayersAndPatterns = HashMap<String, TooDee<String>>;
 
-pub fn toodee_pattern<'a, const N: usize>(width: usize, height: usize, flat_cells: [&'a str; N]) -> TooDee<String>
-{
+pub fn toodee_pattern<'a, const N: usize>(
+    width: usize,
+    height: usize,
+    flat_cells: [&'a str; N],
+) -> TooDee<String> {
     let v: Vec<_> = flat_cells.iter().map(ToString::to_string).collect();
     TooDee::from_vec(width, height, v)
+}
+
+/// Error enum signifying that there was no layer with the given name in either the destination
+/// pattern or from the source pattern
+#[derive(Debug)]
+pub enum MissingLayer {
+    Dest(String),
+    Src(String),
 }
 
 #[derive(Debug, Default, Clone, Serialize, PartialEq, Eq)]
@@ -43,10 +54,84 @@ impl TRRBTPattern {
             .iter()
             .map(|(layer_name, board)| (layer_name.as_str(), board.rows()))
     }
+
+    /// Gets the size of patterns with their associated layers
+    pub fn pattern_sizes(&self) -> impl Iterator<Item = (&str, (usize, usize))> {
+        self.0
+            .iter()
+            .map(|(layer_name, data)| (layer_name.as_str(), data.size()))
+    }
+
+    /// Returns an iterator of coordinates where the provided pattern was matched top-left
+    pub fn matches(
+        &self,
+        other: &Self,
+    ) -> impl Iterator<Item = (&str, impl Iterator<Item = (usize, usize)>)> {
+        self.0.iter().filter_map(|(layer_name, data)| {
+            let other_data = other
+                .0
+                .get(layer_name)
+                .expect("Patterns must have the same layers to be matched");
+
+            let (other_width, other_height) = other_data.size();
+
+            let mut coords = Vec::new();
+            let (mut x, mut y) = (0usize, 0usize);
+            loop {
+                if x + other_width > data.num_cols() {
+                    if y + other_height > data.num_rows() {
+                        break;
+                    }
+                    x = 0;
+                    y += 1;
+                }
+
+                let view = data.view((x, y), (x + other_width, y + other_height));
+                if view
+                    .cells()
+                    .zip(other_data.cells())
+                    .all(|(board_view, pattern)| board_view == pattern)
+                {
+                    coords.push((x, y));
+                }
+
+                x += 1;
+            }
+
+            if coords.is_empty() {
+                None
+            } else {
+                Some((layer_name.as_str(), coords.into_iter()))
+            }
+        })
+    }
+
+    /// Writes the pattern to to board at the given layer and position. Returns an error if the
+    /// layer is not found in the destination or source patterns.
+    pub fn rewrite_at(
+        &mut self,
+        x: usize,
+        y: usize,
+        layer_name: &str,
+        src_pattern: &Self,
+    ) -> Result<(), MissingLayer> {
+        let src_data = src_pattern
+            .0
+            .get(layer_name)
+            .ok_or(MissingLayer::Src(layer_name.to_string()))?;
+
+        let (src_width, src_height) = src_data.size();
+        self.0
+            .get_mut(layer_name)
+            .ok_or(MissingLayer::Dest(layer_name.to_string()))?
+            .view_mut((x, y), (src_width, src_height))
+            .clone_from_toodee(src_data);
+
+        Ok(())
+    }
 }
 
-impl<'a, const N: usize> From<[(&'a str, TooDee<String>); N]> for TRRBTPattern
-{
+impl<'a, const N: usize> From<[(&'a str, TooDee<String>); N]> for TRRBTPattern {
     fn from(value: [(&'a str, TooDee<String>); N]) -> Self {
         let mut core = LayersAndPatterns::new();
         for (key, value) in value {

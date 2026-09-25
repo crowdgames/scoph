@@ -1,9 +1,10 @@
 mod tree;
 
 use petgraph::graph::NodeIndex;
+use toodee::Coordinate;
 pub use tree::BehaviorTree;
 
-use crate::common::{NodeAction, TRRBTPattern};
+use crate::common::{MissingLayer, NodeAction, TRRBTPattern};
 
 #[cfg(test)]
 mod test;
@@ -98,7 +99,7 @@ impl Interpreter {
         });
     }
 
-    pub fn run<V: Visitor>(&mut self, visitor: &mut V) {
+    pub fn run<V: Visitor>(&mut self, visitor: &mut V) -> Result<(), MissingLayer> {
         visitor.startup(self.tree.name(), self.tree.description());
         while !self.call_stack.is_empty() {
             let mut call_result = None;
@@ -139,7 +140,23 @@ impl Interpreter {
                         self.board = (*pattern).clone();
                         call_result = Some(true);
                     }
-                    Rewrite { lhs, rhs } => todo!(),
+                    Rewrite { lhs, rhs } => {
+                        use rand::seq::IteratorRandom;
+                        let mut layer_replacements: Vec<(String, Coordinate)> = vec![];
+                        for (layer_name, coords) in self.board.matches(lhs) {
+                            // for now does a random rewrite at a valid position
+                            // TODO: account for player choices
+                            if let Some(coords) = coords.choose(&mut rand::rng()) {
+                                layer_replacements.push((String::from(layer_name), coords));
+                            }
+                        }
+
+                        call_result = Some(!layer_replacements.is_empty());
+
+                        for (layer_name, (x, y)) in layer_replacements {
+                            self.board.rewrite_at(x, y, layer_name.as_str(), rhs)?;
+                        }
+                    }
                     _ => todo!("Not implemented yet"),
                 }
             }
@@ -165,5 +182,6 @@ impl Interpreter {
 
             visitor.view_board(&self.board);
         }
+        Ok(())
     }
 }
