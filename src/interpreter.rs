@@ -102,15 +102,37 @@ impl Interpreter {
         visitor.startup(self.tree.name(), self.tree.description());
         while !self.call_stack.is_empty() {
             let mut call_result = None;
+
+            // peek at the top of the call stack, perform node actions to the tree/board. Provide a
+            // call result indicating if the node succeeded.
             if let Some(call) = self.call_stack.iter_mut().last() {
                 use NodeAction::*;
                 match self.tree.get_node_action(call.node_index) {
                     LoopUntilAll => {
-                        let push_node_index = self.tree.get_node_neighbors(call.node_index).nth(call.child as usize);
-                        if let Some(push_node_index) = push_node_index {
-                            self.push_call(push_node_index);
-                        } else {
-                            // TODO: make an exception/error raising system
+                        let neighbors: Vec<_> =
+                            self.tree.get_node_neighbors(call.node_index).collect();
+                        if call.child >= neighbors.len() as u32 {
+                            // split this into a function so I can return instead
+                            if let StackState::LoopUntilAll {
+                                any_success,
+                                all_failed: true,
+                            } = &call.state
+                            {
+                                call_result = Some(*any_success);
+                            } else {
+                                call.child = 0;
+                            }
+                        }
+
+                        if call_result.is_none() {
+                            let push_node_index = neighbors.get(call.child as usize);
+                            if let Some(&push_node_index) = push_node_index {
+                                self.push_call(push_node_index);
+                            } else {
+                                // TODO: make an exception/error raising system
+
+                                // error, their is no neighbor at the expected child index
+                            }
                         }
                     }
                     SetBoard { pattern } => {
