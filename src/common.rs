@@ -7,6 +7,8 @@ use serde::{
 use serde_with::{NoneAsEmptyString, serde_as};
 use toodee::{CopyOps, TooDee, TooDeeOps, TooDeeOpsMut, TooDeeViewMut};
 
+use crate::interpreter::IError;
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PlayerId(pub String);
 
@@ -114,16 +116,16 @@ impl TRRBTPattern {
         y: usize,
         layer_name: &str,
         src_pattern: &Self,
-    ) -> Result<(), MissingLayer> {
+    ) -> Result<(), IError> {
         let src_data = src_pattern
             .0
             .get(layer_name)
-            .ok_or(MissingLayer::Src(layer_name.to_string()))?;
+            .ok_or(IError::MissingLayerOnSrc(layer_name.to_string()))?;
 
         let (src_width, src_height) = src_data.size();
         self.0
             .get_mut(layer_name)
-            .ok_or(MissingLayer::Dest(layer_name.to_string()))?
+            .ok_or(IError::MissingLayerOnDest(layer_name.to_string()))?
             .view_mut((x, y), (src_width, src_height))
             .clone_from_toodee(src_data);
 

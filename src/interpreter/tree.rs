@@ -58,6 +58,10 @@ impl BehaviorTree {
     pub fn get_node_neighbors(&self, node_index: NodeIndex) -> impl Iterator<Item = NodeIndex> {
         self.tree.neighbors(node_index)
     }
+
+    pub fn get_node_child(&self, node_index: NodeIndex, child: u32) -> Option<NodeIndex> {
+        self.get_node_neighbors(node_index).nth(child as usize)
+    }
 }
 
 fn node_to_behavior_tree_graph(
@@ -150,11 +154,7 @@ mod test {
             Some(&NodeAction::SetBoard {
                 pattern: TRRBTPattern::from([(
                     "main",
-                    toodee_pattern(
-                        3,
-                        3,
-                        ["A", "B", "C", "D", "E", "F", "G", "H", "I"]
-                    )
+                    toodee_pattern(3, 3, ["A", "B", "C", "D", "E", "F", "G", "H", "I"])
                 ),])
             })
         );

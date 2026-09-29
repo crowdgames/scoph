@@ -1,6 +1,9 @@
+mod err;
 mod tree;
 
-use petgraph::graph::NodeIndex;
+pub use err::IError;
+
+use petgraph::{graph::Neighbors, graph::NodeIndex};
 use toodee::Coordinate;
 pub use tree::BehaviorTree;
 
@@ -18,6 +21,72 @@ struct Call {
     node_index: NodeIndex,
     child: u32,
     state: StackState,
+}
+
+enum Eval {
+    Finished(bool),
+    Push(NodeIndex),
+}
+
+impl Call {
+    fn evaluate(&mut self, tree: &BehaviorTree, board: &mut TRRBTPattern) -> Result<Eval, IError> {
+        use NodeAction as N;
+        match tree.get_node_action(self.node_index) {
+            N::LoopUntilAll => {
+                let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
+                if self.child as usize >= neighbors.len() {
+                    if let StackState::LoopUntilAll {
+                        any_success,
+                        all_failed: true,
+                    } = &self.state
+                    {
+                        return Ok(Eval::Finished(*any_success));
+                    } else {
+                        self.child = 0;
+                    }
+                }
+                Ok(Eval::Push(neighbors[self.child as usize]))
+            }
+            N::SetBoard { pattern } => {
+                *board = (*pattern).clone();
+                Ok(Eval::Finished(true))
+            }
+            N::Rewrite { lhs, rhs } => {
+                use rand::seq::IteratorRandom;
+                let mut layer_replacements = vec![];
+                for (layer_name, coords) in board.matches(lhs) {
+                    // for now does a random rewrite at a valid position
+                    // TODO: account for player choices
+                    if let Some(coords) = coords.choose(&mut rand::rng()) {
+                        layer_replacements.push((String::from(layer_name), coords));
+                    }
+                }
+
+                let result = Eval::Finished(!layer_replacements.is_empty());
+                for (layer_name, (x, y)) in layer_replacements {
+                    board.rewrite_at(x, y, &layer_name, rhs)?;
+                }
+                Ok(result)
+            }
+            _ => todo!(),
+        }
+    }
+
+    fn child_finished(&mut self, succeeded: bool) {
+        use StackState as S;
+        match self.state {
+            S::LoopUntilAll {
+                ref mut any_success,
+                ref mut all_failed,
+            } => {
+                if succeeded {
+                    *any_success = true;
+                    *all_failed = false;
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 /// Allows users to view into an interpreter's current state as it runs
@@ -99,84 +168,26 @@ impl Interpreter {
         });
     }
 
-    pub fn run<V: Visitor>(&mut self, visitor: &mut V) -> Result<(), MissingLayer> {
+    pub fn run<V: Visitor>(&mut self, visitor: &mut V) -> Result<(), IError> {
         visitor.startup(self.tree.name(), self.tree.description());
         while !self.call_stack.is_empty() {
-            let mut call_result = None;
-
             // peek at the top of the call stack, perform node actions to the tree/board. Provide a
             // call result indicating if the node succeeded.
-            if let Some(call) = self.call_stack.iter_mut().last() {
-                use NodeAction::*;
-                match self.tree.get_node_action(call.node_index) {
-                    LoopUntilAll => {
-                        let neighbors: Vec<_> =
-                            self.tree.get_node_neighbors(call.node_index).collect();
-                        if call.child >= neighbors.len() as u32 {
-                            // split this into a function so I can return instead
-                            if let StackState::LoopUntilAll {
-                                any_success,
-                                all_failed: true,
-                            } = &call.state
-                            {
-                                call_result = Some(*any_success);
-                            } else {
-                                call.child = 0;
-                            }
-                        }
+            let call_result = if let Some(call) = self.call_stack.last_mut() {
+                call.evaluate(&self.tree, &mut self.board)?
+            } else {
+                return Ok(()); // stack is empty, interpreter is finished
+            };
 
-                        if call_result.is_none() {
-                            let push_node_index = neighbors.get(call.child as usize);
-                            if let Some(&push_node_index) = push_node_index {
-                                self.push_call(push_node_index);
-                            } else {
-                                // TODO: make an exception/error raising system
-
-                                // error, their is no neighbor at the expected child index
-                            }
-                        }
+            match call_result {
+                Eval::Finished(succeeded) => {
+                    self.call_stack.pop();
+                    if let Some(call) = self.call_stack.last_mut() {
+                        call.child_finished(succeeded);
                     }
-                    SetBoard { pattern } => {
-                        self.board = (*pattern).clone();
-                        call_result = Some(true);
-                    }
-                    Rewrite { lhs, rhs } => {
-                        use rand::seq::IteratorRandom;
-                        let mut layer_replacements: Vec<(String, Coordinate)> = vec![];
-                        for (layer_name, coords) in self.board.matches(lhs) {
-                            // for now does a random rewrite at a valid position
-                            // TODO: account for player choices
-                            if let Some(coords) = coords.choose(&mut rand::rng()) {
-                                layer_replacements.push((String::from(layer_name), coords));
-                            }
-                        }
-
-                        call_result = Some(!layer_replacements.is_empty());
-
-                        for (layer_name, (x, y)) in layer_replacements {
-                            self.board.rewrite_at(x, y, layer_name.as_str(), rhs)?;
-                        }
-                    }
-                    _ => todo!("Not implemented yet"),
                 }
-            }
-
-            if let Some(did_succeed) = call_result {
-                self.call_stack.pop();
-
-                if let Some(call) = self.call_stack.iter_mut().last() {
-                    match call.state {
-                        StackState::LoopUntilAll {
-                            ref mut any_success,
-                            ref mut all_failed,
-                        } => {
-                            if did_succeed {
-                                *any_success = true;
-                                *all_failed = false;
-                            }
-                        }
-                        _ => {}
-                    }
+                Eval::Push(node_index) => {
+                    self.push_call(node_index);
                 }
             }
 
