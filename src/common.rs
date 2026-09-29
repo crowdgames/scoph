@@ -1,11 +1,11 @@
-use std::{collections::HashMap, marker::PhantomData, ops::Deref};
+use std::{collections::HashMap, marker::PhantomData};
 
 use serde::{
     Deserialize, Serialize,
     de::{DeserializeSeed, Deserializer, Visitor},
 };
 use serde_with::{NoneAsEmptyString, serde_as};
-use toodee::{CopyOps, TooDee, TooDeeOps, TooDeeOpsMut, TooDeeViewMut};
+use toodee::{CopyOps, TooDee, TooDeeOps, TooDeeOpsMut};
 
 use crate::interpreter::IError;
 

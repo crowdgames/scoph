@@ -108,7 +108,6 @@ mod test {
 
     use super::*;
     use anyhow::Result;
-    use toodee::TooDee;
 
     #[test]
     fn test_loading_from_text() -> Result<()> {

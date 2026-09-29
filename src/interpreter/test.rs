@@ -1,5 +1,5 @@
 use crate::common::toodee_pattern;
-
+use pretty_assertions::assert_eq;
 use super::*;
 use anyhow::Result;
 
@@ -47,7 +47,7 @@ fn test_only_set_board() -> Result<()> {
         board_states: vec![],
     };
 
-    interpreter.run(&mut cmp);
+    interpreter.run(&mut cmp)?;
 
     assert_eq!(
         cmp.board_states.as_slice(),
@@ -62,8 +62,6 @@ fn test_only_set_board() -> Result<()> {
 
 #[test]
 fn test_loop_until_all_with_set_board() -> Result<()> {
-    use std::thread;
-    use std::time::{Duration, Instant};
     const LOOP_AND_SET: &str = r#"
     {
         "name" : "loop-until-all + set-board",
@@ -85,47 +83,29 @@ fn test_loop_until_all_with_set_board() -> Result<()> {
     let bt = BehaviorTree::load_from_json_text(LOOP_AND_SET)?;
     let mut int = Interpreter::new(bt);
 
-    struct ThreadComparer(Comparer);
-    impl Visitor for ThreadComparer {
-        fn startup(&mut self, tree_name: &str, tree_description: &str) {
-            Comparer::startup(&mut self.0, tree_name, tree_description);
-        }
-
-        fn view_board(&mut self, board: &TRRBTPattern) {
-            assert_eq!(
-                board,
-                &TRRBTPattern::from([(
-                    "main",
-                    toodee_pattern(3, 3, ["👁️‍🗨️", "_", "👁️‍🗨️", "_", "👃", "_", "<", "---", ">"])
-                )])
-            );
-        }
-
-        fn stack_trace(&mut self, tree: &BehaviorTree, call_stack: &[Call]) {
-            Comparer::stack_trace(&mut self.0, tree, call_stack);
-        }
-    }
-
-    let mut cmp = ThreadComparer(Comparer {
+    let mut cmp = Comparer {
         expected_name: "loop-until-all + set-board".to_string(),
         expected_description: "Expected to run forever because set-board always succeeds"
             .to_string(),
         board_states: vec![],
-    });
+    };
 
-    let t = thread::spawn(move || {
-        int.run(&mut cmp);
-    });
-
-    let start = Instant::now();
-    loop {
-        if Instant::now() - start > Duration::from_secs(3) {
-            println!("Went on for the expected 3 seconds");
-            // thread leak, don't do this in actual production
-            drop(t);
-            break;
-        }
+    // Idea is that this tree will run forever, do to the semantics of the language
+    int.startup(&mut cmp);
+    for _ in 0..500 {
+        int.step(&mut cmp)?;
     }
+
+    let mut expected_vec = vec![
+        TRRBTPattern::from([(
+            "main",
+            toodee_pattern(3, 3, ["👁️‍🗨️", "_", "👁️‍🗨️", "_", "👃", "_", "<", "---", ">"])
+        )]);
+        499
+    ];
+    expected_vec.insert(0, TRRBTPattern::default());
+
+    assert_eq!(cmp.board_states, expected_vec);
 
     Ok(())
 }

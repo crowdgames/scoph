@@ -3,11 +3,10 @@ mod tree;
 
 pub use err::IError;
 
-use petgraph::{graph::Neighbors, graph::NodeIndex};
-use toodee::Coordinate;
+use petgraph::graph::NodeIndex;
 pub use tree::BehaviorTree;
 
-use crate::common::{MissingLayer, NodeAction, TRRBTPattern};
+use crate::common::TRRBTPattern;
 
 #[cfg(test)]
 mod test;
@@ -30,7 +29,7 @@ enum Eval {
 
 impl Call {
     fn evaluate(&mut self, tree: &BehaviorTree, board: &mut TRRBTPattern) -> Result<Eval, IError> {
-        use NodeAction as N;
+        use crate::common::NodeAction as N;
         match tree.get_node_action(self.node_index) {
             N::LoopUntilAll => {
                 let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
@@ -151,7 +150,7 @@ impl Interpreter {
     }
 
     fn push_call(&mut self, node_index: NodeIndex) {
-        use NodeAction::*;
+        use crate::common::NodeAction::*;
         let state = match self.tree.get_node_action(node_index) {
             LoopUntilAll => StackState::LoopUntilAll {
                 any_success: false,
@@ -168,30 +167,39 @@ impl Interpreter {
         });
     }
 
-    pub fn run<V: Visitor>(&mut self, visitor: &mut V) -> Result<(), IError> {
+    pub fn startup<V: Visitor>(&mut self, visitor: &mut V) {
         visitor.startup(self.tree.name(), self.tree.description());
-        while !self.call_stack.is_empty() {
-            // peek at the top of the call stack, perform node actions to the tree/board. Provide a
-            // call result indicating if the node succeeded.
-            let call_result = if let Some(call) = self.call_stack.last_mut() {
-                call.evaluate(&self.tree, &mut self.board)?
-            } else {
-                return Ok(()); // stack is empty, interpreter is finished
-            };
+    }
 
-            match call_result {
-                Eval::Finished(succeeded) => {
-                    self.call_stack.pop();
-                    if let Some(call) = self.call_stack.last_mut() {
-                        call.child_finished(succeeded);
-                    }
-                }
-                Eval::Push(node_index) => {
-                    self.push_call(node_index);
+    pub fn step<V: Visitor>(&mut self, visitor: &mut V) -> Result<(), IError> {
+        // peek at the top of the call stack, perform node actions to the tree/board. Provide a
+        // call result indicating if the node succeeded.
+        let call_result = if let Some(call) = self.call_stack.last_mut() {
+            call.evaluate(&self.tree, &mut self.board)?
+        } else {
+            return Ok(()); // stack is empty, interpreter is finished
+        };
+
+        match call_result {
+            Eval::Finished(succeeded) => {
+                self.call_stack.pop();
+                if let Some(call) = self.call_stack.last_mut() {
+                    call.child_finished(succeeded);
                 }
             }
+            Eval::Push(node_index) => {
+                self.push_call(node_index);
+            }
+        }
 
-            visitor.view_board(&self.board);
+        visitor.view_board(&self.board);
+        Ok(())
+    }
+
+    pub fn run<V: Visitor>(&mut self, visitor: &mut V) -> Result<(), IError> {
+        self.startup(visitor);
+        while !self.call_stack.is_empty() {
+            self.step(visitor)?;
         }
         Ok(())
     }
