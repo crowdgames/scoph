@@ -9,6 +9,9 @@ use toodee::{CopyOps, TooDee, TooDeeOps, TooDeeOpsMut};
 
 use crate::interpreter::IError;
 
+#[cfg(test)]
+mod test;
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PlayerId(pub String);
 
@@ -78,14 +81,14 @@ impl TRRBTPattern {
             let (other_width, other_height) = other_data.size();
 
             let mut coords = Vec::new();
-            let (mut x, mut y) = (0usize, 0usize);
+            let (mut x, mut y) = (0, 0);
             loop {
                 if x + other_width > data.num_cols() {
+                    x = 0;
+                    y += 1;
                     if y + other_height > data.num_rows() {
                         break;
                     }
-                    x = 0;
-                    y += 1;
                 }
 
                 let view = data.view((x, y), (x + other_width, y + other_height));
