@@ -56,7 +56,11 @@ impl BehaviorTree {
     }
 
     pub fn get_node_neighbors(&self, node_index: NodeIndex) -> impl Iterator<Item = NodeIndex> {
-        self.tree.neighbors(node_index).collect::<Vec<_>>().into_iter().rev()
+        self.tree
+            .neighbors(node_index)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
     }
 
     pub fn get_node_child(&self, node_index: NodeIndex, child: u32) -> Option<NodeIndex> {
@@ -251,6 +255,71 @@ mod test {
             i += 1;
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_multiple_children() -> Result<()> {
+        const MULTIPLE_CHILDREN: &str = r#"{
+            "name": "multiple children",
+            "desc": "multiple children under an order node",
+            "tree": {
+                "type": "order",
+                "children": [
+                    {
+                        "type": "set-board",
+                        "pattern": {
+                            "main": [["A"]]
+                        }
+                    },
+                    {
+                        "type": "set-board",
+                        "pattern": {
+                            "main": [["B"]]
+                        }
+                    },
+                    {
+                        "type": "set-board",
+                        "pattern": {
+                            "main": [["C"]]
+                        }
+                    },
+                    {
+                        "type": "set-board",
+                        "pattern": {
+                            "main": [["D"]]
+                        }
+                    },
+                    {
+                        "type": "set-board",
+                        "pattern": {
+                            "main": [["E"]]
+                        }
+                    }
+                ]
+            }
+        }"#;
+
+        let behavior_tree = BehaviorTree::load_from_json_text(MULTIPLE_CHILDREN)?;
+        assert_eq!(behavior_tree.name(), "multiple children");
+        assert_eq!(
+            behavior_tree.description(),
+            "multiple children under an order node"
+        );
+        let root = behavior_tree.root();
+        assert_eq!(behavior_tree.get_node_action(root), &NodeAction::Order);
+
+        for (ni, pattern_text) in behavior_tree
+            .get_node_neighbors(root)
+            .zip(["A", "B", "C", "D", "E"])
+        {
+            assert_eq!(
+                behavior_tree.get_node_action(ni),
+                &NodeAction::SetBoard {
+                    pattern: TRRBTPattern::from([("main", toodee_pattern(1, 1, [pattern_text]))])
+                }
+            )
+        }
         Ok(())
     }
 }
