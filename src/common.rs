@@ -91,6 +91,8 @@ impl TRRBTPattern {
                     }
                 }
 
+                assert!(x + other_width >= x, "End x is before start x end.x = {} < start.x = {}", x + other_width, x);
+                assert!(y + other_height >= y, "End y is before start y end.y = {} < start.y = {}", y + other_width, y);
                 let view = data.view((x, y), (x + other_width, y + other_height));
                 if view
                     .cells()
@@ -129,7 +131,7 @@ impl TRRBTPattern {
         self.0
             .get_mut(layer_name)
             .ok_or(IError::MissingLayerOnDest(layer_name.to_string()))?
-            .view_mut((x, y), (src_width, src_height))
+            .view_mut((x, y), (x + src_width, y + src_height))
             .clone_from_toodee(src_data);
 
         Ok(())
