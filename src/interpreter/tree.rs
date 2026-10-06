@@ -56,7 +56,7 @@ impl BehaviorTree {
     }
 
     pub fn get_node_neighbors(&self, node_index: NodeIndex) -> impl Iterator<Item = NodeIndex> {
-        self.tree.neighbors(node_index)
+        self.tree.neighbors(node_index).collect::<Vec<_>>().into_iter().rev()
     }
 
     pub fn get_node_child(&self, node_index: NodeIndex, child: u32) -> Option<NodeIndex> {
@@ -108,6 +108,7 @@ mod test {
 
     use super::*;
     use anyhow::Result;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_loading_from_text() -> Result<()> {
@@ -157,6 +158,98 @@ mod test {
                 ),])
             })
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_complex_finishable_tree_from_text() -> Result<()> {
+        const ORDER_REPLACE_LOOP: &str = r#"
+    {
+        "name": "Order and replace",
+        "desc": "Run an order node with two children. First a set-board, then a loop-until-all with a single rewrite child",
+        "tree": {
+            "type": "order",
+            "nid": "",
+            "comment": "",
+            "children": [
+                {
+                    "type": "set-board",
+                    "nid": "",
+                    "comment": "",
+                    "pattern": {
+                        "main": [
+                            [".", ".", ".", ".", ".", "."],
+                            [".", ".", ".", ".", ".", "."],
+                            [".", ".", ".", ".", ".", "."],
+                            [".", ".", ".", ".", ".", "."],
+                            [".", ".", ".", ".", ".", "."],
+                            [".", ".", ".", ".", ".", "."]
+                        ]
+                    }
+                },
+                {
+                    "type": "loop-until-all",
+                    "nid": "",
+                    "comment": "",
+                    "children": [
+                        {
+                            "type": "rewrite",
+                            "nid": "",
+                            "comment": "",
+                            "lhs": {
+                                "main": [
+                                    ["."]
+                                ]
+                            },
+                            "rhs": {
+                                "main": [
+                                    ["X"]
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    "#;
+
+        let behavior_tree = BehaviorTree::load_from_json_text(ORDER_REPLACE_LOOP)?;
+        let root = behavior_tree.root();
+        assert_eq!(behavior_tree.get_node_action(root), &NodeAction::Order);
+
+        let root_children: Vec<_> = behavior_tree.get_node_neighbors(root).collect();
+        let expected_root_children_actions = vec![
+            NodeAction::SetBoard {
+                pattern: TRRBTPattern::from([("main", toodee_pattern(6, 6, ["."; 36]))]),
+            },
+            NodeAction::LoopUntilAll,
+        ];
+        let mut i = 0;
+        for ni in root_children {
+            let na = behavior_tree.get_node_action(ni);
+            assert_eq!(na, &expected_root_children_actions[i]);
+
+            match na {
+                &NodeAction::SetBoard { .. } => {
+                    assert_eq!(behavior_tree.get_node_neighbors(ni).count(), 0);
+                }
+                &NodeAction::LoopUntilAll => {
+                    let mut neighbors = behavior_tree.get_node_neighbors(ni);
+                    assert_eq!(
+                        neighbors.next().map(|ni| behavior_tree.get_node_action(ni)),
+                        Some(&NodeAction::Rewrite {
+                            lhs: TRRBTPattern::from([("main", toodee_pattern(1, 1, ["."]))]),
+                            rhs: TRRBTPattern::from([("main", toodee_pattern(1, 1, ["X"]))])
+                        })
+                    );
+                    assert_eq!(neighbors.next(), None);
+                }
+                _ => unreachable!(),
+            }
+            i += 1;
+        }
 
         Ok(())
     }
