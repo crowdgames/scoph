@@ -13,6 +13,7 @@ mod test;
 
 enum StackState {
     LoopUntilAll { any_success: bool, all_failed: bool },
+    Order { any_success: bool },
     SingleAction,
 }
 
@@ -31,20 +32,38 @@ impl Call {
     fn evaluate(&mut self, tree: &BehaviorTree, board: &mut TRRBTPattern) -> Result<Eval, IError> {
         use crate::common::NodeAction as N;
         match tree.get_node_action(self.node_index) {
+            N::Order => {
+                let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
+                if self.child as usize >= neighbors.len() {
+                    let StackState::Order { any_success } = self.state else {
+                        unreachable!();
+                    };
+
+                    Ok(Eval::Finished(any_success))
+                } else {
+                    let child_index = self.child as usize;
+                    Ok(Eval::Push(neighbors[child_index]))
+                }
+            }
             N::LoopUntilAll => {
                 let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
                 if self.child as usize >= neighbors.len() {
-                    if let StackState::LoopUntilAll {
+                    let StackState::LoopUntilAll {
                         any_success,
-                        all_failed: true,
-                    } = &self.state
-                    {
-                        return Ok(Eval::Finished(*any_success));
+                        ref mut all_failed
+                    } = self.state else {
+                        unreachable!();
+                    };
+
+                    if *all_failed {
+                        return Ok(Eval::Finished(any_success));
                     } else {
                         self.child = 0;
+                        *all_failed = true;
                     }
                 }
-                Ok(Eval::Push(neighbors[self.child as usize]))
+                let child_index = self.child as usize;
+                Ok(Eval::Push(neighbors[child_index]))
             }
             N::SetBoard { pattern } => {
                 *board = (*pattern).clone();
@@ -82,6 +101,15 @@ impl Call {
                     *any_success = true;
                     *all_failed = false;
                 }
+                self.child += 1;
+            }
+            S::Order {
+                ref mut any_success,
+            } => {
+                if succeeded {
+                    *any_success = true;
+                }
+                self.child += 1;
             }
             _ => {}
         }
@@ -122,6 +150,7 @@ pub trait Visitor {
                 println!("| child index: {} out of {}", call.child, child_count);
             }
         }
+        println!("<===========================>");
     }
 }
 
@@ -156,6 +185,7 @@ impl Interpreter {
                 any_success: false,
                 all_failed: true,
             },
+            Order => StackState::Order { any_success: false },
             SetBoard { .. } | Rewrite { .. } => StackState::SingleAction,
             _ => todo!(),
         };
@@ -182,7 +212,7 @@ impl Interpreter {
 
         match call_result {
             Eval::Finished(succeeded) => {
-                self.call_stack.pop();
+                let _prev = self.call_stack.pop();
                 if let Some(call) = self.call_stack.last_mut() {
                     call.child_finished(succeeded);
                 }
@@ -200,6 +230,15 @@ impl Interpreter {
         self.startup(visitor);
         while !self.call_stack.is_empty() {
             self.step(visitor)?;
+        }
+        Ok(())
+    }
+
+    pub fn run_with_stack_trace<V: Visitor>(&mut self, visitor: &mut V) -> Result<(), IError> {
+        self.startup(visitor);
+        while !self.call_stack.is_empty() {
+            self.step(visitor)?;
+            visitor.stack_trace(&self.tree, &self.call_stack);
         }
         Ok(())
     }
