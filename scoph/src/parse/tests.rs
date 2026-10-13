@@ -4,7 +4,7 @@ use pretty_assertions::assert_eq;
 use crate::common::*;
 
 fn load_json_from_test(filename: &str) -> Result<TRRBTDocument> {
-    let bytes = std::fs::read(&format!("games/trees/{filename}"))?;
+    let bytes = std::fs::read(&format!("../games/trees/{filename}"))?;
     serde_json::from_slice(&bytes).map_err(|e| anyhow!("Failed to serialize: {e}"))
 }
 

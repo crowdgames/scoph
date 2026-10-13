@@ -1,3 +1,5 @@
+use std::assert_matches;
+
 use super::*;
 use crate::common::toodee_pattern;
 use anyhow::Result;
@@ -47,7 +49,7 @@ fn test_only_set_board() -> Result<()> {
         board_states: vec![],
     };
 
-    interpreter.run(&mut cmp)?;
+    interpreter.run_full(&mut cmp)?;
 
     assert_eq!(
         cmp.board_states.as_slice(),
@@ -93,7 +95,8 @@ fn test_loop_until_all_with_set_board() -> Result<()> {
     // Idea is that this tree will run forever, do to the semantics of the language
     int.startup(&mut cmp);
     for _ in 0..500 {
-        int.step(&mut cmp)?;
+        assert_matches!(int.step(), Ok(false));
+        int.view_board(&mut cmp);
     }
 
     let mut expected_vec = vec![
@@ -178,7 +181,7 @@ fn test_loop_that_should_end() -> Result<()> {
         board_states: vec![],
     };
 
-    int.run_with_stack_trace(&mut cmp)?;
+    int.run_full(&mut cmp)?;
 
     let mut boards = cmp.board_states.into_iter();
     // initial step where we just push the set board

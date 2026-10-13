@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::{
     common::{Info, NodeAction},
     parse::{Node, TRRBTDocument},
@@ -26,7 +28,7 @@ pub struct BehaviorTree {
 }
 
 impl BehaviorTree {
-    pub fn load_from_json_file(path: &str) -> anyhow::Result<Self> {
+    pub fn load_from_json_file<T: AsRef<Path>>(path: T) -> anyhow::Result<Self> {
         let s = std::fs::read_to_string(path)?;
         Self::load_from_json_text(s.as_str()).map_err(|e| anyhow!("{}", e))
     }
