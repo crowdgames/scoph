@@ -2,6 +2,7 @@ use clap::Parser;
 use scoph::interpreter::Interpreter;
 
 #[derive(clap::Parser)]
+#[command(override_usage = "")]
 pub enum ReplCommand {
     #[command(alias = "q")]
     Quit,
