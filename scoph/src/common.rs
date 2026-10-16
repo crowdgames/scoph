@@ -12,7 +12,7 @@ use crate::interpreter::IError;
 #[cfg(test)]
 mod test;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PlayerId(pub String);
 
 impl From<&str> for PlayerId {
@@ -91,8 +91,18 @@ impl TRRBTPattern {
                     }
                 }
 
-                assert!(x + other_width >= x, "End x is before start x end.x = {} < start.x = {}", x + other_width, x);
-                assert!(y + other_height >= y, "End y is before start y end.y = {} < start.y = {}", y + other_width, y);
+                assert!(
+                    x + other_width >= x,
+                    "End x is before start x end.x = {} < start.x = {}",
+                    x + other_width,
+                    x
+                );
+                assert!(
+                    y + other_height >= y,
+                    "End y is before start y end.y = {} < start.y = {}",
+                    y + other_width,
+                    y
+                );
                 let view = data.view((x, y), (x + other_width, y + other_height));
                 if view
                     .cells()
@@ -135,6 +145,37 @@ impl TRRBTPattern {
             .clone_from_toodee(src_data);
 
         Ok(())
+    }
+
+    /// Accesses a cell on the grid of the specified layer.
+    pub fn get_cell(&self, x: usize, y: usize, layer_name: &str) -> Result<&str, IError> {
+        self.0
+            .get(layer_name)
+            .ok_or(IError::MissingLayerOnSrc(layer_name.to_string()))
+            .map(|grid| grid[(x, y)].as_str())
+    }
+}
+
+impl ToString for TRRBTPattern {
+    fn to_string(&self) -> String {
+        let mut out = String::new();
+
+        for (k, v) in self.0.iter() {
+            let width = v.num_cols();
+            let mut ln = format!("{:?}", k.to_string());
+            ln.push('\n');
+
+            for r in v.rows() {
+                for c in r {
+                    ln.push_str(c.as_str());
+                    ln.push(' ');
+                }
+                ln.push('\n');
+            }
+            out.push_str(ln.as_str());
+        }
+
+        out
     }
 }
 
@@ -286,19 +327,37 @@ where
 }
 
 #[serde_as]
-#[derive(Default, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Info {
-    #[serde_as(as = NoneAsEmptyString)]
-    #[serde(default)]
-    nid: Option<String>,
+    nid: String,
     #[serde_as(as = NoneAsEmptyString)]
     #[serde(default)]
     comment: Option<String>,
 }
 
 impl Info {
+    pub fn new(nid: &str) -> Self {
+        Self {
+            nid: nid.to_string(),
+            comment: None,
+        }
+    }
+
+    pub fn set_comment(mut self, comment: &str) -> Self {
+        self.comment = Some(comment.to_string());
+        self
+    }
+
     pub fn set_id(&mut self, id: &str) {
-        self.nid = Some(id.to_string());
+        self.nid = id.to_string();
+    }
+
+    pub fn id(&self) -> &str {
+        &self.nid
+    }
+
+    pub fn comment(&self) -> Option<&str> {
+        self.comment.as_ref().map(String::as_str)
     }
 }
 
@@ -306,8 +365,9 @@ fn one_times() -> u32 {
     1
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, strum::Display, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
 pub enum NodeAction {
     // Tree Macros
     XIdent,

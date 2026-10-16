@@ -1,10 +1,27 @@
 use std::ffi::c_char;
 
+use scoph::interpreter::IError;
+
 #[repr(C)]
 #[allow(nonstandard_style)]
 pub enum ScophError {
     Ok,
     LoadFailed,
+    MissingChild,
+    MissingLayerOnSrc,
+    MissingLayerOnDest,
+    MissingNodeId,
+}
+
+impl From<IError> for ScophError {
+    fn from(value: IError) -> Self {
+        match value {
+            IError::MissingChild { .. } => Self::MissingChild,
+            IError::MissingLayerOnDest(_) => Self::MissingLayerOnDest,
+            IError::MissingLayerOnSrc(_) => Self::MissingLayerOnSrc,
+            IError::MissingNodeId(_) => Self::MissingNodeId,
+        }
+    }
 }
 
 #[unsafe(no_mangle)]

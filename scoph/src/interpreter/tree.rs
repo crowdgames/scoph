@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::{
     common::{Info, NodeAction},
-    parse::{Node, TRRBTDocument},
+    parse::{DocNode, TRRBTDocument},
 };
 use anyhow::anyhow;
 use petgraph::graph::{DiGraph, NodeIndex};
@@ -13,9 +13,7 @@ pub struct BehaviorNode {
 }
 
 #[derive(Default)]
-pub struct BehaviorEdge {
-    breakpoint: bool,
-}
+pub struct BehaviorEdge;
 
 type TRRBTTree = DiGraph<BehaviorNode, BehaviorEdge>;
 
@@ -57,6 +55,12 @@ impl BehaviorTree {
         &self.tree[node_index].info
     }
 
+    pub fn get_node_by_id(&self, id: &str) -> Option<NodeIndex> {
+        self.tree
+            .node_indices()
+            .find_map(|i| (self.tree[i].info.id() == id).then_some(i))
+    }
+
     pub fn get_node_neighbors(&self, node_index: NodeIndex) -> impl Iterator<Item = NodeIndex> {
         self.tree
             .neighbors(node_index)
@@ -71,13 +75,24 @@ impl BehaviorTree {
 }
 
 fn node_to_behavior_tree_graph(
-    n: Node,
+    n: DocNode,
     root: &mut Option<NodeIndex>,
+    index_base: &mut u32,
     ug: &mut TRRBTTree,
     parent: Option<NodeIndex>,
 ) {
+    let if_no_id = format!("{}", *index_base);
+    let mut info = Info::new(n.info.id().unwrap_or_else(|| {
+        *index_base += 1;
+        &if_no_id
+    }));
+
+    if let Some(comment) = n.info.comment() {
+        info = info.set_comment(comment);
+    }
+
     let new = BehaviorNode {
-        info: n.info,
+        info,
         action: n.action,
     };
 
@@ -89,7 +104,7 @@ fn node_to_behavior_tree_graph(
     }
 
     for child in n.children {
-        node_to_behavior_tree_graph(child, root, ug, Some(new_index));
+        node_to_behavior_tree_graph(child, root, index_base, ug, Some(new_index));
     }
 }
 
@@ -97,7 +112,8 @@ impl From<TRRBTDocument> for BehaviorTree {
     fn from(value: TRRBTDocument) -> Self {
         let mut tree = TRRBTTree::new();
         let mut root = None;
-        node_to_behavior_tree_graph(value.tree, &mut root, &mut tree, None);
+        let mut index_base = 0;
+        node_to_behavior_tree_graph(value.tree, &mut root, &mut index_base, &mut tree, None);
 
         Self {
             name: value.name,

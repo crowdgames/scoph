@@ -5,10 +5,12 @@ use ratatui::style::Style;
 use ratatui::widgets::{Block, BorderType, Paragraph, Tabs};
 use ratatui::{DefaultTerminal, Frame};
 use scoph::prelude::*;
-use tui_prompts::{Prompt, State, TextPrompt, TextState};
+use tui_prompts::{FocusState, Prompt, State, TextPrompt, TextState};
+use tui_tree_widget::TreeState;
 
 use crate::commands::{ExtractError, ReplCommand, extract_command};
 use crate::history::ReplHistory;
+use crate::tree::TuiTrrbtTree;
 
 #[derive(Parser)]
 struct Args {
@@ -32,6 +34,7 @@ struct App<'a> {
     intrp: Option<Interpreter>,
     selected_tab: usize,
     should_quit: bool,
+    tree_state: TreeState<String>,
     history: ReplHistory,
 }
 
@@ -44,8 +47,11 @@ impl<'a> App<'a> {
             selected_tab: 0,
             should_quit: false,
             intrp: Default::default(),
+            tree_state: Default::default(),
             history: ReplHistory::new(),
         };
+
+        out.prompt_state.focus();
 
         if let Some(path) = path {
             out.try_to_load_game(&path);
@@ -98,7 +104,30 @@ impl<'a> App<'a> {
                 K::Enter => {
                     self.submit();
                 }
-                _ => self.prompt_state.handle_key_event(key),
+                K::Esc => {
+                    if self.prompt_state.is_focused() {
+                        self.prompt_state.blur();
+                    } else {
+                        self.prompt_state.focus()
+                    }
+                }
+                K::Left if !self.prompt_state.is_focused() && self.selected_tab == 1 => {
+                    self.tree_state.key_left();
+                }
+                K::Right if !self.prompt_state.is_focused() && self.selected_tab == 1 => {
+                    self.tree_state.key_right();
+                }
+                K::Up if !self.prompt_state.is_focused() && self.selected_tab == 1 => {
+                    self.tree_state.key_up();
+                }
+                K::Down if !self.prompt_state.is_focused() && self.selected_tab == 1 => {
+                    self.tree_state.key_down();
+                }
+                _ => {
+                    if self.prompt_state.is_focused() {
+                        self.prompt_state.handle_key_event(key)
+                    }
+                }
             }
         }
 
@@ -190,6 +219,11 @@ impl<'a> App<'a> {
 
     fn draw_tree(&mut self, frame: &mut Frame<'_>, area: Rect) {
         let intrp = self.intrp.as_mut().unwrap();
+        frame.render_stateful_widget(
+            TuiTrrbtTree::try_from(intrp.tree()).expect("Tree should be able to be serialized"),
+            area,
+            &mut self.tree_state,
+        );
     }
 
     fn draw_board(&mut self, frame: &mut Frame<'_>, area: Rect) {

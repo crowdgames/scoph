@@ -3,9 +3,13 @@ mod stack;
 mod tree;
 mod visitor;
 
+use std::collections::HashMap;
+use std::collections::HashSet;
+
 pub use err::IError;
 use stack::Call;
-use visitor::Visitor;
+pub use visitor::StackFrameInfo;
+pub use visitor::Visitor;
 
 use petgraph::graph::NodeIndex;
 pub use tree::BehaviorTree;
@@ -14,7 +18,7 @@ use crate::{
     common::TRRBTPattern,
     interpreter::{
         stack::Eval,
-        visitor::{Capabilities, Full, ViewBoardOnly},
+        visitor::{Capabilities, Full},
     },
 };
 
@@ -25,7 +29,7 @@ mod test;
 pub struct Interpreter {
     tree: BehaviorTree,
     board: TRRBTPattern,
-    // visitor_capabilities: T,
+    breakpoints: HashMap<NodeIndex, String>,
     call_stack: Vec<Call>,
 }
 
@@ -35,7 +39,7 @@ impl Interpreter {
         let mut out = Self {
             tree,
             board: Default::default(),
-            // visitor_capabilities: Default::default(),
+            breakpoints: HashMap::new(),
             call_stack: Default::default(),
         };
 
@@ -44,15 +48,43 @@ impl Interpreter {
         out
     }
 
+    pub fn add_breakpoint(&mut self, id: &str) -> Result<(), IError> {
+        if let Some(index) = self.tree.get_node_by_id(id) {
+            self.breakpoints.insert(index, id.to_string());
+            Ok(())
+        } else {
+            Err(IError::MissingNodeId(id.to_string()))
+        }
+    }
+
+    pub fn remove_breakpoint(&mut self, id: &str) -> Result<(), IError> {
+        if let Some(index) = self.tree.get_node_by_id(id) {
+            self.breakpoints.remove(&index);
+            Ok(())
+        } else {
+            Err(IError::MissingNodeId(id.to_string()))
+        }
+    }
+
+    pub fn at_breakpoint(&self) -> bool {
+        self.call_stack
+            .last()
+            .is_some_and(|c| self.breakpoints.contains_key(&c.info().0))
+    }
+
     fn push_call(&mut self, node_index: NodeIndex) {
         self.call_stack.push(Call::new(&self.tree, node_index));
+    }
+
+    pub fn tree(&self) -> &BehaviorTree {
+        &self.tree
     }
 
     pub fn startup<V: Visitor>(&mut self, visitor: &mut V) {
         visitor.startup(self.tree.name(), self.tree.description());
     }
 
-    pub fn view_board<V: Visitor>(&mut self, visitor: &mut V) {
+    pub fn view_board<V: Visitor>(&self, visitor: &mut V) {
         visitor.view_board(&self.board);
     }
 
