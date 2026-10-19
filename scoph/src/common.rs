@@ -161,7 +161,6 @@ impl ToString for TRRBTPattern {
         let mut out = String::new();
 
         for (k, v) in self.0.iter() {
-            let width = v.num_cols();
             let mut ln = format!("{:?}", k.to_string());
             ln.push('\n');
 

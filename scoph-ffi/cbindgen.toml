@@ -1,0 +1,6 @@
+language = "C"
+
+include_guard = "scoph_h"
+
+[parse]
+parse_deps = false

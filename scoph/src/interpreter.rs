@@ -4,7 +4,6 @@ mod tree;
 mod visitor;
 
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 pub use err::IError;
 use stack::Call;
@@ -76,18 +75,24 @@ impl Interpreter {
         self.call_stack.push(Call::new(&self.tree, node_index));
     }
 
+    /// Returns a reference to this interpreter's behavior tree
     pub fn tree(&self) -> &BehaviorTree {
         &self.tree
     }
 
+    /// Invokes `Visitor::startup`
     pub fn startup<V: Visitor>(&mut self, visitor: &mut V) {
         visitor.startup(self.tree.name(), self.tree.description());
     }
 
+    /// Invokes `Visitor::view_board`
     pub fn view_board<V: Visitor>(&self, visitor: &mut V) {
         visitor.view_board(&self.board);
     }
 
+    /// Causes the interpreter to take a step in its evaluation. If successful, will return a
+    /// boolean that indicates the TRRBT program is finished with `true`. Otherwise gives an
+    /// interpreter error
     pub fn step(&mut self) -> Result<bool, IError> {
         // peek at the top of the call stack, perform node actions to the tree/board. Provide a
         // call result indicating if the node succeeded.
@@ -140,7 +145,15 @@ impl Interpreter {
         Ok(())
     }
 
+    /// Run an interpreter the whole way through with all capabilities
     pub fn run_full<V: Visitor>(&mut self, visitor: &mut V) -> Result<(), IError> {
         self.run::<V, Full>(visitor)
+    }
+
+    /// get the size of a specified layer if it exists
+    pub fn board_layer_size(&self, layer_name: &str) -> Option<(usize, usize)> {
+        self.board
+            .pattern_sizes()
+            .find_map(|(name, (width, height))| (name == layer_name).then_some((width, height)))
     }
 }

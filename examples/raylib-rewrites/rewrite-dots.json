@@ -1,0 +1,48 @@
+{
+    "name": "Order and replace",
+    "desc": "Run an order node with two children. First a set-board, then a loop-until-all with a single rewrite child",
+    "tree": {
+        "type": "order",
+        "nid": "",
+        "comment": "",
+        "children": [
+            {
+                "type": "set-board",
+                "nid": "",
+                "comment": "",
+                "pattern": {
+                    "main": [
+                        [".", ".", ".", ".", ".", "."],
+                        [".", ".", ".", ".", ".", "."],
+                        [".", ".", ".", ".", ".", "."],
+                        [".", ".", ".", ".", ".", "."],
+                        [".", ".", ".", ".", ".", "."],
+                        [".", ".", ".", ".", ".", "."]
+                    ]
+                }
+            },
+            {
+                "type": "loop-until-all",
+                "nid": "",
+                "comment": "",
+                "children": [
+                    {
+                        "type": "rewrite",
+                        "nid": "",
+                        "comment": "",
+                        "lhs": {
+                            "main": [
+                                ["."]
+                            ]
+                        },
+                        "rhs": {
+                            "main": [
+                                ["X"]
+                            ]
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}

@@ -2,11 +2,16 @@
 name = "scoph-ffi"
 version = "0.1.0"
 edition = "2024"
-crate-type = ["staticlib", "cdylib"]
 description = "A C library to use scoph on any platform"
+build = "build.rs"
+
+[lib]
+name = "scoph"
+crate-type = ["staticlib"]
 
 [dependencies]
 scoph = { path = "../scoph" }
 
 [build-dependencies]
-cbindgen = "0.24.0"
+cbindgen = "0.29.0"
+cc = "1.9.0"

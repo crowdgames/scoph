@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_with::{NoneAsEmptyString, serde_as};
 
-use crate::common::{Info, NodeAction};
+use crate::common::NodeAction;
 
 #[cfg(test)]
 mod tests;
