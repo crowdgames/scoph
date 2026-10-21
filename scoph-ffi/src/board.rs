@@ -25,6 +25,57 @@ pub extern "C" fn scoph_board_layer_size(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn scoph_get_board_cell(
+    intrp: *const ScophIntrp,
+    layer_name: *const c_char,
+    dest: *mut *const c_char,
+    x: c_uint,
+    y: c_uint,
+) -> ScophError {
+    let intrp = unsafe { &(*intrp).0 };
+
+    struct UnsafeVisitor<'a> {
+        layer_name: &'a CStr,
+        x: usize,
+        y: usize,
+        dest: *mut *const c_char,
+        error: ScophError,
+    }
+
+    impl<'a> scoph::interpreter::Visitor for UnsafeVisitor<'a> {
+        fn view_board(&mut self, board: &scoph::common::TRRBTPattern) {
+            match board.get_cell_c(
+                self.x,
+                self.y,
+                &self
+                    .layer_name
+                    .to_str()
+                    .expect("Should be a valid UTF-8 layer name"),
+            ) {
+                Ok(cell) => unsafe {
+                    *self.dest = cell;
+                },
+                Err(e) => {
+                    self.error = e.into();
+                }
+            }
+        }
+    }
+
+    let mut uv = UnsafeVisitor {
+        layer_name: unsafe { CStr::from_ptr(layer_name) },
+        x: x as usize,
+        y: y as usize,
+        dest,
+        error: ScophError::Ok,
+    };
+    intrp.view_board(&mut uv);
+
+    uv.error
+}
+
+#[deprecated]
+#[unsafe(no_mangle)]
 pub extern "C" fn scoph_view_board_cell(
     intrp: *const ScophIntrp,
     layer_name: *const c_char,

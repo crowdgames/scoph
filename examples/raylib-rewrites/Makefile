@@ -11,7 +11,9 @@ test:
 
 .PHONY: scoph test
 
-scoph:
+scoph: scoph.h
 	cargo build --manifest-path=../../scoph-ffi/Cargo.toml
 	cp ../../target/debug/libscoph.a lib/libscoph.a
+
+scoph.h:
 	cbindgen -c ../../scoph-ffi/cbindgen.toml  -o include/scoph.h "../../scoph-ffi"

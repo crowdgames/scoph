@@ -1,4 +1,4 @@
-use std::{collections::HashMap, marker::PhantomData};
+use std::{collections::HashMap, ffi::CString, marker::PhantomData, str::FromStr};
 
 use serde::{
     Deserialize, Serialize,
@@ -21,7 +21,7 @@ impl From<&str> for PlayerId {
     }
 }
 
-type LayersAndPatterns = HashMap<String, TooDee<String>>;
+type LayersAndPatterns = HashMap<String, TooDee<CString>>;
 
 pub fn toodee_pattern<'a, const N: usize>(
     width: usize,
@@ -48,16 +48,28 @@ impl TRRBTPattern {
         let mut core = LayersAndPatterns::new();
         core.insert(
             "main".to_string(),
-            TooDee::init(width, height, cell.to_string()),
+            TooDee::init(
+                width,
+                height,
+                CString::from_str(cell).expect("Regular string slice"),
+            ),
         );
         Self(core)
     }
 
     /// Returns an iterator of the layer names and an iterator of their rows on the board
-    pub fn layers(&self) -> impl Iterator<Item = (&str, impl Iterator<Item = &[String]>)> {
-        self.0
-            .iter()
-            .map(|(layer_name, board)| (layer_name.as_str(), board.rows()))
+    pub fn layers(
+        &self,
+    ) -> impl Iterator<Item = (&str, impl Iterator<Item = impl Iterator<Item = &str>>)> {
+        self.0.iter().map(|(layer_name, board)| {
+            (
+                layer_name.as_str(),
+                board
+                    .rows()
+                    .into_iter()
+                    .map(|s| s.into_iter().map(|cs| cs.to_str().unwrap())),
+            )
+        })
     }
 
     /// Gets the size of patterns with their associated layers
@@ -152,7 +164,20 @@ impl TRRBTPattern {
         self.0
             .get(layer_name)
             .ok_or(IError::MissingLayerOnSrc(layer_name.to_string()))
-            .map(|grid| grid[(x, y)].as_str())
+            .map(|grid| grid[(x, y)].to_str().unwrap())
+    }
+
+    /// Accesses a cell on the grid as a C string, meaning it will be null terminated.
+    pub fn get_cell_c(
+        &self,
+        x: usize,
+        y: usize,
+        layer_name: &str,
+    ) -> Result<*const std::ffi::c_char, IError> {
+        self.0
+            .get(layer_name)
+            .ok_or(IError::MissingLayerOnSrc(layer_name.to_string()))
+            .map(|grid| grid[(x, y)].as_ptr())
     }
 }
 
@@ -166,7 +191,7 @@ impl ToString for TRRBTPattern {
 
             for r in v.rows() {
                 for c in r {
-                    ln.push_str(c.as_str());
+                    ln.push_str(c.to_str().unwrap());
                     ln.push(' ');
                 }
                 ln.push('\n');
@@ -182,7 +207,19 @@ impl<'a, const N: usize> From<[(&'a str, TooDee<String>); N]> for TRRBTPattern {
     fn from(value: [(&'a str, TooDee<String>); N]) -> Self {
         let mut core = LayersAndPatterns::new();
         for (key, value) in value {
-            core.insert(key.to_string(), value);
+            let w = value.num_cols();
+            let h = value.num_rows();
+            core.insert(
+                key.to_string(),
+                TooDee::from_vec(
+                    w,
+                    h,
+                    value
+                        .into_iter()
+                        .map(|s| CString::from_str(s.as_str()).unwrap())
+                        .collect(),
+                ),
+            );
         }
         Self(core)
     }
@@ -196,7 +233,7 @@ impl<'de> Deserialize<'de> for TRRBTPattern {
         struct PatternText;
 
         impl<'de> DeserializeSeed<'de> for PatternText {
-            type Value = TooDee<String>;
+            type Value = TooDee<CString>;
 
             fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
             where

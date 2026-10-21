@@ -11,6 +11,38 @@ enum StackState {
     SingleAction,
 }
 
+/// Signifies that the provided action is not a transform node
+#[derive(Debug)]
+pub struct NonTransformNode;
+
+pub enum Transform {
+    Ident,
+    Rotate { remorig: bool },
+    Skew { remorig: bool },
+    SwapOnly { what: String, with: String },
+    Link { target_id: String },
+}
+
+impl TryFrom<&NodeAction> for Transform {
+    type Error = NonTransformNode;
+
+    fn try_from(value: &NodeAction) -> Result<Self, Self::Error> {
+        match value {
+            &NodeAction::XSkew { remorig } => Ok(Self::Skew { remorig }),
+            &NodeAction::XIdent => Ok(Self::Ident),
+            &NodeAction::XRotate { remorig } => Ok(Self::Rotate { remorig }),
+            NodeAction::XSwap { what, with } => Ok(Self::SwapOnly {
+                what: what.to_owned(),
+                with: with.to_owned(),
+            }),
+            NodeAction::XLink { target } => Ok(Self::Link {
+                target_id: target.to_owned(),
+            }),
+            _ => Err(NonTransformNode),
+        }
+    }
+}
+
 pub struct Call {
     node_index: NodeIndex,
     child: u32,

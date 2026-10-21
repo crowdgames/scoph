@@ -47,18 +47,24 @@ void draw_board(ScophIntrp *intrp, ScophIntrpResult last_res) {
       int linex = board_x + x * (cell_size + 1);
       DrawLine(linex, board_y, linex, board_y + board_height, BLACK);
 
-      char cellbuf[8];
-      unsigned int bytes_read;
-      ScophError code = scoph_view_board_cell(intrp, DEFAULT_LAYER, x, y,
-                                              cellbuf, &bytes_read);
-      cellbuf[bytes_read] = '\0';
+      // old way
+      // char cellbuf[8];
+      // unsigned int bytes_read;
+      // ScophError code = scoph_view_board_cell(intrp, DEFAULT_LAYER, x, y,
+      //                                         cellbuf, &bytes_read);
+      // cellbuf[bytes_read] = '\0';
+
+      // new way
+      const char *cellbuf;
+      ScophError code =
+          scoph_get_board_cell(intrp, DEFAULT_LAYER, &cellbuf, x, y);
       if (code) {
         fail_and_print(
             code, intrp,
             "Error happened while trying to read the board contents");
       }
 
-      int text_x = board_x + cell_size / 10 +  x * cell_size;
+      int text_x = board_x + cell_size / 10 + x * cell_size;
       int text_y = board_y + y * cell_size;
       DrawText(cellbuf, text_x, text_y, cell_size, BLACK);
     }
