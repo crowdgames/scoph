@@ -4,6 +4,7 @@ use super::*;
 use crate::common::toodee_pattern;
 use anyhow::Result;
 use pretty_assertions::assert_eq;
+use serde_json::json;
 
 struct Comparer {
     expected_name: String,
@@ -213,6 +214,134 @@ fn test_loop_that_should_end() -> Result<()> {
         push_frame = !push_frame;
     }
     assert_eq!(boards.next(), Some(expected_final_pattern));
+
+    Ok(())
+}
+
+fn none_succeed_at(i: i32, len: i32) -> serde_json::Value {
+    use serde_json::Value as V;
+    let child_rewrites = (0..len)
+        .into_iter()
+        .map(|n| {
+            json!({
+                "type": "rewrite",
+                "lhs": {
+                    "main": [ [if n >= i {"Y"} else {"N"}] ],
+                },
+                "rhs": {
+                    "main": [[ "_" ]],
+                }
+            })
+        })
+        .collect();
+    V::Array(child_rewrites)
+}
+
+#[test]
+fn test_none_quits_on_success() -> Result<()> {
+    const REWRITES: i32 = 5;
+    for i in 0..REWRITES {
+        let test_game = json!({
+            "name": "None Quits",
+            "desc": "A none node that will quit when it has a successful rewrite",
+            "tree": {
+                "type": "order",
+                "children": [
+                    {
+                        "type": "set-board",
+                        "pattern": {
+                            "main": [["_", "_", "Y", "_", "_"]],
+                        }
+                    },
+                    {
+                        "type": "none",
+                        "children": none_succeed_at(i, REWRITES)
+                    }
+                ]
+            }
+        });
+
+        let mut cmp = Comparer {
+            expected_name: "None Quits".to_string(),
+            expected_description: "A none node that will quit when it has a successful rewrite"
+                .to_string(),
+            board_states: vec![],
+        };
+
+        let mut intrp =
+            Interpreter::new(BehaviorTree::load_from_json_text(&test_game.to_string())?);
+        intrp.run_full(&mut cmp)?;
+
+        let initial_pattern: TRRBTPattern =
+            serde_json::from_value(json!({"main": [["_", "_", "Y", "_", "_"]]}))?;
+
+        let mut v = vec![
+            // start and push set-board
+            TRRBTPattern::default(),
+            // do and pop set-board
+            initial_pattern.clone(),
+            // push none
+            initial_pattern.clone(),
+        ];
+
+        for _ in 0..=(i * 2) {
+            v.push(initial_pattern.clone());
+        }
+
+        for _ in 0..3 {
+            v.push(serde_json::from_value(
+                json!({"main": [["_", "_", "_", "_", "_"]]}),
+            )?);
+        }
+
+        assert_eq!(cmp.board_states, v, "at i: {i}");
+    }
+    Ok(())
+}
+
+#[test]
+fn test_none_finishes() -> Result<()> {
+    const REWRITES: i32 = 5;
+    let test_game = json!({
+        "name": "None doesn't quit",
+        "desc": "A none node that won't quit because all rewrites fail",
+        "tree": {
+            "type": "order",
+            "children": [
+                {
+                    "type": "set-board",
+                    "pattern": {
+                        "main": [["_", "_", "Y", "_", "_"]],
+                    }
+                },
+                {
+                    "type": "none",
+                    "children": none_succeed_at(REWRITES, REWRITES)
+                }
+            ]
+        }
+    });
+
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_text(&test_game.to_string())?);
+    let mut cmp = Comparer {
+        expected_name: "None doesn't quit".to_string(),
+        expected_description: "A none node that won't quit because all rewrites fail".to_string(),
+        board_states: vec![],
+    };
+    intrp.run_full(&mut cmp)?;
+
+    let initial_pattern: TRRBTPattern =
+        serde_json::from_value(json!({"main": [["_", "_", "Y", "_", "_"]]}))?;
+    let mut v = vec![
+        TRRBTPattern::default(),
+        initial_pattern.clone(),
+        initial_pattern.clone(),
+        initial_pattern.clone(),
+    ];
+    for _ in 0..=(REWRITES * 2) {
+        v.push(initial_pattern.clone());
+    }
+    assert_eq!(cmp.board_states, v);
 
     Ok(())
 }

@@ -1,4 +1,5 @@
 use petgraph::graph::NodeIndex;
+use serde_with::rust::unwrap_or_skip;
 
 use crate::{
     common::{NodeAction, TRRBTPattern},
@@ -8,6 +9,7 @@ use crate::{
 enum StackState {
     LoopUntilAll { any_success: bool, all_failed: bool },
     Order { any_success: bool },
+    None { all_failed: bool },
     SingleAction,
 }
 
@@ -63,6 +65,7 @@ impl Call {
                 all_failed: true,
             },
             N::Order => StackState::Order { any_success: false },
+            N::None => StackState::None { all_failed: true },
             N::SetBoard { .. } | N::Rewrite { .. } => StackState::SingleAction,
             _ => todo!(),
         };
@@ -115,6 +118,19 @@ impl Call {
                 let child_index = self.child as usize;
                 Ok(Eval::Push(neighbors[child_index]))
             }
+            N::None => {
+                let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
+                let StackState::None { all_failed } = self.state else {
+                    unreachable!()
+                };
+                if !all_failed {
+                    Ok(Eval::Finished(false))
+                } else if self.child as usize >= neighbors.len() {
+                    Ok(Eval::Finished(true))
+                } else {
+                    Ok(Eval::Push(neighbors[self.child as usize]))
+                }
+            }
             N::SetBoard { pattern } => {
                 *board = (*pattern).clone();
                 Ok(Eval::Finished(true))
@@ -161,7 +177,13 @@ impl Call {
                 }
                 self.child += 1;
             }
-            _ => {}
+            S::None { ref mut all_failed } => {
+                if succeeded {
+                    *all_failed = false;
+                }
+                self.child += 1;
+            }
+            S::SingleAction => {}
         }
     }
 

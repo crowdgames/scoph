@@ -17,7 +17,10 @@ pub struct BehaviorEdge;
 
 type TRRBTTree = DiGraph<BehaviorNode, BehaviorEdge>;
 
-// TODO: implement a custom serializer
+// TODO: implement a custom serializer for BehaviorTree
+
+/// A BehaviorTree is a non-mutating structure that represents the structure of a full TRRBT
+/// program. They can be loaded from a TRRBT json file and be transformed.
 pub struct BehaviorTree {
     name: String,
     desc: String,
@@ -35,32 +38,39 @@ impl BehaviorTree {
         serde_json::from_str(text).map(|t: TRRBTDocument| t.into())
     }
 
+    /// Gets the name of the game
     pub fn name(&self) -> &str {
         self.name.as_str()
     }
 
+    /// Gets the description of the game
     pub fn description(&self) -> &str {
         self.desc.as_str()
     }
 
+    /// Returns the petgraph index of the root node of the tree
     pub fn root(&self) -> NodeIndex {
         self.root_index
     }
 
+    /// Gets a ref to the node action of the provided node action in the tree
     pub fn get_node_action(&self, node_index: NodeIndex) -> &NodeAction {
         &self.tree[node_index].action
     }
 
+    /// Returns the info of the node in the graph at the provided petgraph index
     pub fn get_node_info(&self, node_index: NodeIndex) -> &Info {
         &self.tree[node_index].info
     }
 
+    /// Searches the tree for the petgraph index of the node with the given node ID
     pub fn get_node_by_id(&self, id: &str) -> Option<NodeIndex> {
         self.tree
             .node_indices()
             .find_map(|i| (self.tree[i].info.id() == id).then_some(i))
     }
 
+    /// Gets the outgoing connections of the provided node in order
     pub fn get_node_neighbors(&self, node_index: NodeIndex) -> impl Iterator<Item = NodeIndex> {
         self.tree
             .neighbors(node_index)
@@ -69,6 +79,7 @@ impl BehaviorTree {
             .rev()
     }
 
+    /// Gets the child of a node by index
     pub fn get_node_child(&self, node_index: NodeIndex, child: u32) -> Option<NodeIndex> {
         self.get_node_neighbors(node_index).nth(child as usize)
     }
