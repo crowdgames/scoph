@@ -79,7 +79,9 @@ impl Call {
             N::All => StackState::All {
                 all_succeeded: true,
             },
-            N::SetBoard { .. } | N::Rewrite { .. } => StackState::SingleAction,
+            N::SetBoard { .. } | N::Rewrite { .. } | N::Match { .. } | N::MatchTimes { .. } => {
+                StackState::SingleAction
+            }
             _ => todo!(),
         };
 
@@ -226,6 +228,21 @@ impl Call {
                     board.rewrite_at(x, y, &layer_name, rhs)?;
                 }
                 Ok(result)
+            }
+
+            N::Match { pattern } => Ok(Eval::Finished(board.matches(pattern).count() > 0)),
+
+            N::MatchTimes { times, pattern } => {
+                let mut matched_all = true;
+
+                for (_, coords) in board.matches(pattern) {
+                    if coords.count() != *times as usize {
+                        matched_all = false;
+                        break;
+                    }
+                }
+
+                Ok(Eval::Finished(matched_all))
             }
             _ => todo!(),
         }
