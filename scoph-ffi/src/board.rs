@@ -2,6 +2,8 @@ use std::ffi::{CStr, c_char, c_uint};
 
 use crate::{ScophError, ScophIntrp};
 
+/// Provides the size in cells of a layer on the game's board. Will return a
+/// [`ScophError::MissingLayerOnSrc`] if the layer doesn't exist on the board.
 #[unsafe(no_mangle)]
 pub extern "C" fn scoph_board_layer_size(
     intrp: *const ScophIntrp,
@@ -24,6 +26,8 @@ pub extern "C" fn scoph_board_layer_size(
     ScophError::Ok
 }
 
+/// Gets the cell of the grid at the specified layer and coordinates. Returns a
+/// [ScophError::MissingLayerSrc](crate::error::ScophError)
 #[unsafe(no_mangle)]
 pub extern "C" fn scoph_get_board_cell(
     intrp: *const ScophIntrp,
@@ -72,60 +76,4 @@ pub extern "C" fn scoph_get_board_cell(
     intrp.view_board(&mut uv);
 
     uv.error
-}
-
-#[deprecated]
-#[unsafe(no_mangle)]
-pub extern "C" fn scoph_view_board_cell(
-    intrp: *const ScophIntrp,
-    layer_name: *const c_char,
-    x: c_uint,
-    y: c_uint,
-    dest: *mut c_char,
-    bytes_read: *mut c_uint,
-) -> ScophError {
-    let intrp = unsafe { &(*intrp).0 };
-
-    struct UnsafeVisitor<'a> {
-        layer_name: &'a CStr,
-        x: usize,
-        y: usize,
-        dest: *mut c_char,
-        bytes_read: *mut c_uint,
-        error: Option<ScophError>,
-    }
-
-    impl<'a> scoph::interpreter::Visitor for UnsafeVisitor<'a> {
-        fn view_board(&mut self, board: &scoph::common::TRRBTPattern) {
-            match board.get_cell(
-                self.x,
-                self.y,
-                &self
-                    .layer_name
-                    .to_str()
-                    .expect("Should be a valid UTF-8 layer name"),
-            ) {
-                Ok(cell) => unsafe {
-                    let l = cell.len();
-                    *self.bytes_read = l as c_uint;
-                    std::ptr::copy_nonoverlapping(cell.as_ptr(), self.dest as *mut u8, l);
-                },
-                Err(e) => {
-                    self.error = Some(e.into());
-                }
-            }
-        }
-    }
-
-    let mut uv = UnsafeVisitor {
-        layer_name: unsafe { CStr::from_ptr(layer_name) },
-        x: x as usize,
-        y: y as usize,
-        dest,
-        bytes_read,
-        error: None,
-    };
-    intrp.view_board(&mut uv);
-
-    uv.error.unwrap_or(ScophError::Ok)
 }

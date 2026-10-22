@@ -71,7 +71,17 @@ void draw_board(ScophIntrp *intrp, ScophIntrpResult last_res) {
   }
 
   if (last_res == Finished) {
-    DrawText("Interpreter is finished!", 0, 0, 15, RED);
+    ScophOutcome so;
+    ScophError code = scoph_get_outcome(intrp, &so);
+    if (code) {
+      fail_and_print(code, intrp, "Error occurred while getting outcome");
+      return;
+    }
+
+    DrawText(TextFormat("Interpreter is finished! Outcome is %d and the "
+                        "winning player is %s",
+                        so.outcome, so.player_id),
+             0, 0, 15, RED);
   }
 }
 
@@ -88,7 +98,7 @@ int main() {
 
   SetTargetFPS(60);
 
-  const int ticks_before_step = 20;
+  const int ticks_before_step = 5;
   int ticks = ticks_before_step;
 
   while (!WindowShouldClose()) {

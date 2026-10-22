@@ -218,7 +218,7 @@ fn test_loop_that_should_end() -> Result<()> {
     Ok(())
 }
 
-fn none_succeed_at(i: i32, len: i32) -> serde_json::Value {
+fn make_rewrites(i: i32, len: i32) -> serde_json::Value {
     use serde_json::Value as V;
     let child_rewrites = (0..len)
         .into_iter()
@@ -255,7 +255,7 @@ fn test_none_quits_on_success() -> Result<()> {
                     },
                     {
                         "type": "none",
-                        "children": none_succeed_at(i, REWRITES)
+                        "children": make_rewrites(i, REWRITES)
                     }
                 ]
             }
@@ -316,7 +316,7 @@ fn test_none_finishes() -> Result<()> {
                 },
                 {
                     "type": "none",
-                    "children": none_succeed_at(REWRITES, REWRITES)
+                    "children": make_rewrites(REWRITES, REWRITES)
                 }
             ]
         }
@@ -341,6 +341,121 @@ fn test_none_finishes() -> Result<()> {
     for _ in 0..=(REWRITES * 2) {
         v.push(initial_pattern.clone());
     }
+    assert_eq!(cmp.board_states, v);
+
+    Ok(())
+}
+
+#[test]
+fn test_win_ends_game() -> Result<()> {
+    const REWRITES: i32 = 5;
+    let test_game = json!( {
+        "name": "Win Test",
+        "desc": "Win node will end its game upon its first success",
+        "tree": {
+            "type": "order",
+            "children": [
+                {
+                    "type": "set-board",
+                    "pattern": {
+                        "main": [["_", "_", "Y", "_", "_"]]
+                    }
+                },
+                {
+                    "type": "win",
+                    "pid": "Jeremy",
+                    "children": make_rewrites(REWRITES-1, REWRITES)
+                }
+            ]
+        }
+    });
+
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_text(&test_game.to_string())?);
+
+    let mut cmp = Comparer {
+        expected_name: "Win Test".to_string(),
+        expected_description: "Win node will end its game upon its first success".to_string(),
+        board_states: vec![],
+    };
+    intrp.run_full(&mut cmp)?;
+
+    assert_eq!(intrp.outcome, Some(Outcome::Win("Jeremy".into())));
+
+    let mut v = vec![
+        TRRBTPattern::default(),
+        // set-board and pop
+        serde_json::from_value(json!({ "main": [["_", "_", "Y", "_", "_"]] }))?,
+        // push win
+        serde_json::from_value(json!({ "main": [["_", "_", "Y", "_", "_"]] }))?,
+        // push first rewrite
+        serde_json::from_value(json!({ "main": [["_", "_", "Y", "_", "_"]] }))?,
+    ];
+
+    for _ in 0..(( REWRITES-1 ) * 2) {
+        v.push(serde_json::from_value(
+            json!({ "main": [["_", "_", "Y", "_", "_"]] }),
+        )?);
+    }
+
+    v.push(serde_json::from_value(json!({ "main": [["_", "_", "_", "_", "_"]]}))?);
+    assert_eq!(cmp.board_states, v);
+
+    Ok(())
+}
+
+
+#[test]
+fn test_lose_ends_game() -> Result<()> {
+    const REWRITES: i32 = 5;
+    let test_game = json!( {
+        "name": "Lose Test",
+        "desc": "Lose node will end its game upon its first success",
+        "tree": {
+            "type": "order",
+            "children": [
+                {
+                    "type": "set-board",
+                    "pattern": {
+                        "main": [["_", "_", "Y", "_", "_"]]
+                    }
+                },
+                {
+                    "type": "lose",
+                    "pid": "Jeremy",
+                    "children": make_rewrites(REWRITES-1, REWRITES)
+                }
+            ]
+        }
+    });
+
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_text(&test_game.to_string())?);
+
+    let mut cmp = Comparer {
+        expected_name: "Lose Test".to_string(),
+        expected_description: "Lose node will end its game upon its first success".to_string(),
+        board_states: vec![],
+    };
+    intrp.run_full(&mut cmp)?;
+
+    assert_eq!(intrp.outcome, Some(Outcome::Lose("Jeremy".into())));
+
+    let mut v = vec![
+        TRRBTPattern::default(),
+        // set-board and pop
+        serde_json::from_value(json!({ "main": [["_", "_", "Y", "_", "_"]] }))?,
+        // push win
+        serde_json::from_value(json!({ "main": [["_", "_", "Y", "_", "_"]] }))?,
+        // push first rewrite
+        serde_json::from_value(json!({ "main": [["_", "_", "Y", "_", "_"]] }))?,
+    ];
+
+    for _ in 0..(( REWRITES-1 ) * 2) {
+        v.push(serde_json::from_value(
+            json!({ "main": [["_", "_", "Y", "_", "_"]] }),
+        )?);
+    }
+
+    v.push(serde_json::from_value(json!({ "main": [["_", "_", "_", "_", "_"]]}))?);
     assert_eq!(cmp.board_states, v);
 
     Ok(())

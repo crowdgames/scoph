@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 pub use err::IError;
 use stack::Call;
+pub use stack::Outcome;
 pub use visitor::StackFrameInfo;
 pub use visitor::Visitor;
 
@@ -30,9 +31,11 @@ pub struct Interpreter {
     board: TRRBTPattern,
     breakpoints: HashMap<NodeIndex, String>,
     call_stack: Vec<Call>,
+    outcome: Option<Outcome>,
 }
 
 impl Interpreter {
+    /// Construct a new interpreter that will run on the provided [BehaviorTree]
     pub fn new(tree: BehaviorTree) -> Self {
         let root = tree.root();
         let mut out = Self {
@@ -40,6 +43,7 @@ impl Interpreter {
             board: Default::default(),
             breakpoints: HashMap::new(),
             call_stack: Default::default(),
+            outcome: None,
         };
 
         out.push_call(root);
@@ -90,16 +94,24 @@ impl Interpreter {
         visitor.view_board(&self.board);
     }
 
-    /// Causes the interpreter to take a step in its evaluation. If successful, will return a
-    /// boolean that indicates the TRRBT program is finished with `true`. Otherwise gives an
+    /// Causes the interpreter to take a step in its evaluation. If successful, will return an
+    /// option that if some means the game is concluded with the provided outcome. Otherwise gives an
     /// interpreter error
     pub fn step(&mut self) -> Result<bool, IError> {
+        if self.outcome.is_some() {
+            return Ok(true);
+        }
+
         // peek at the top of the call stack, perform node actions to the tree/board. Provide a
         // call result indicating if the node succeeded.
         let call_result = if let Some(call) = self.call_stack.last_mut() {
             call.evaluate(&self.tree, &mut self.board)?
         } else {
-            return Ok(true); // stack is empty, interpreter is finished
+            // stack is empty
+            if self.outcome.is_none() {
+                self.outcome = Some(Outcome::Tie);
+            }
+            return Ok(true);
         };
 
         match call_result {
@@ -112,11 +124,18 @@ impl Interpreter {
             Eval::Push(node_index) => {
                 self.push_call(node_index);
             }
+            Eval::End(outcome) => {
+                self.call_stack.clear();
+                self.outcome = Some(outcome);
+                return Ok(true);
+            }
         }
 
         Ok(false)
     }
 
+    /// Runs an entire scoph program without stopping. Will run the visitor methods on the
+    /// specified capabilities.
     pub fn run<V: Visitor, C: Capabilities>(&mut self, visitor: &mut V) -> Result<(), IError> {
         if C::can_startup() {
             visitor.startup(self.tree.name(), self.tree.description());
@@ -155,5 +174,10 @@ impl Interpreter {
         self.board
             .pattern_sizes()
             .find_map(|(name, (width, height))| (name == layer_name).then_some((width, height)))
+    }
+
+    /// Check if the game is over and has an outcome
+    pub fn outcome(&self) -> Option<&Outcome> {
+        self.outcome.as_ref()
     }
 }

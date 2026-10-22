@@ -1,8 +1,10 @@
-use petgraph::graph::NodeIndex;
+use std::ffi::CStr;
+
+use petgraph::{adj::Neighbors, graph::NodeIndex};
 use serde_with::rust::unwrap_or_skip;
 
 use crate::{
-    common::{NodeAction, TRRBTPattern},
+    common::{NodeAction, PlayerId, TRRBTPattern},
     interpreter::{BehaviorTree, IError, visitor::StackFrameInfo},
 };
 
@@ -51,9 +53,17 @@ pub struct Call {
     state: StackState,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum Outcome {
+    Win(PlayerId),
+    Lose(PlayerId),
+    Tie,
+}
+
 pub enum Eval {
     Finished(bool),
     Push(NodeIndex),
+    End(Outcome),
 }
 
 impl Call {
@@ -65,7 +75,7 @@ impl Call {
                 all_failed: true,
             },
             N::Order => StackState::Order { any_success: false },
-            N::None => StackState::None { all_failed: true },
+            N::None | N::Win { .. } | N::Lose { .. } => StackState::None { all_failed: true },
             N::SetBoard { .. } | N::Rewrite { .. } => StackState::SingleAction,
             _ => todo!(),
         };
@@ -97,6 +107,7 @@ impl Call {
                     Ok(Eval::Push(neighbors[child_index]))
                 }
             }
+
             N::LoopUntilAll => {
                 let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
                 if self.child as usize >= neighbors.len() {
@@ -118,6 +129,7 @@ impl Call {
                 let child_index = self.child as usize;
                 Ok(Eval::Push(neighbors[child_index]))
             }
+
             N::None => {
                 let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
                 let StackState::None { all_failed } = self.state else {
@@ -131,10 +143,40 @@ impl Call {
                     Ok(Eval::Push(neighbors[self.child as usize]))
                 }
             }
+
+            N::Win { pid } => {
+                let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
+                let StackState::None { all_failed } = self.state else {
+                    unreachable!()
+                };
+                if !all_failed {
+                    Ok(Eval::End(Outcome::Win(pid.clone())))
+                } else if self.child as usize >= neighbors.len() {
+                    Ok(Eval::Finished(false))
+                } else {
+                    Ok(Eval::Push(neighbors[self.child as usize]))
+                }
+            }
+
+            N::Lose { pid } => {
+                let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
+                let StackState::None { all_failed } = self.state else {
+                    unreachable!()
+                };
+                if !all_failed {
+                    Ok(Eval::End(Outcome::Lose(pid.clone())))
+                } else if self.child as usize >= neighbors.len() {
+                    Ok(Eval::Finished(false))
+                } else {
+                    Ok(Eval::Push(neighbors[self.child as usize]))
+                }
+            }
+
             N::SetBoard { pattern } => {
                 *board = (*pattern).clone();
                 Ok(Eval::Finished(true))
             }
+
             N::Rewrite { lhs, rhs } => {
                 use rand::seq::IteratorRandom;
                 let mut layer_replacements = vec![];

@@ -19,7 +19,7 @@ fn test_parsing_loop() -> Result<()> {
     }));
     let mut loop_until_all = DocNode::new(NodeAction::LoopUntilAll);
     let mut player = DocNode::new(NodeAction::Player {
-        pid: PlayerId("1".to_string()),
+        pid: "1".into(),
     });
 
     let rewrite1 = DocNode::new(NodeAction::Rewrite {
@@ -66,7 +66,7 @@ fn test_parsing_tic_tac_toe() -> Result<()> {
     x_ident.set_id("ply");
 
     let mut player_node = DocNode::new(NodeAction::Player {
-        pid: PlayerId("X".to_string()),
+        pid: "X".into(),
     });
     let player_rewrite = DocNode::new(NodeAction::Rewrite {
         lhs: TRRBTPattern::filled("_", 1, 1),
@@ -76,7 +76,7 @@ fn test_parsing_tic_tac_toe() -> Result<()> {
     x_ident.add_child(player_node);
 
     let mut win = DocNode::new(NodeAction::Win {
-        pid: PlayerId("X".to_string()),
+        pid: "X".into(),
     });
     let mut player_x_rotate = DocNode::new(NodeAction::default_x_rotate());
     let mut player_x_skew = DocNode::new(NodeAction::default_x_skew());

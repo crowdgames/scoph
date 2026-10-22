@@ -13,11 +13,11 @@ use crate::interpreter::IError;
 mod test;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PlayerId(pub String);
+pub struct PlayerId(pub CString);
 
 impl From<&str> for PlayerId {
     fn from(value: &str) -> Self {
-        Self(value.to_string())
+        Self(CString::from_str(value).unwrap())
     }
 }
 
