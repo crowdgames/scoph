@@ -1,7 +1,5 @@
-use std::ffi::CStr;
 
-use petgraph::{adj::Neighbors, graph::NodeIndex};
-use serde_with::rust::unwrap_or_skip;
+use petgraph::graph::NodeIndex;
 
 use crate::{
     common::{NodeAction, PlayerId, TRRBTPattern},
@@ -12,6 +10,7 @@ enum StackState {
     LoopUntilAll { any_success: bool, all_failed: bool },
     Order { any_success: bool },
     None { all_failed: bool },
+    All { all_succeeded: bool },
     SingleAction,
 }
 
@@ -76,6 +75,9 @@ impl Call {
             },
             N::Order => StackState::Order { any_success: false },
             N::None | N::Win { .. } | N::Lose { .. } => StackState::None { all_failed: true },
+            N::All => StackState::All {
+                all_succeeded: true,
+            },
             N::SetBoard { .. } | N::Rewrite { .. } => StackState::SingleAction,
             _ => todo!(),
         };
@@ -158,6 +160,21 @@ impl Call {
                 }
             }
 
+            N::All => {
+                let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
+                let StackState::All { all_succeeded } = self.state else {
+                    unreachable!()
+                };
+
+                Ok(if !all_succeeded {
+                    Eval::Finished(false)
+                } else if self.child as usize >= neighbors.len() {
+                    Eval::Finished(true)
+                } else {
+                    Eval::Push(neighbors[self.child as usize])
+                })
+            }
+
             N::Lose { pid } => {
                 let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
                 let StackState::None { all_failed } = self.state else {
@@ -222,6 +239,14 @@ impl Call {
             S::None { ref mut all_failed } => {
                 if succeeded {
                     *all_failed = false;
+                }
+                self.child += 1;
+            }
+            S::All {
+                ref mut all_succeeded,
+            } => {
+                if !succeeded {
+                    *all_succeeded = false;
                 }
                 self.child += 1;
             }

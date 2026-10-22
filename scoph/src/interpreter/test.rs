@@ -300,6 +300,91 @@ fn test_none_quits_on_success() -> Result<()> {
 }
 
 #[test]
+fn test_all_quits_on_failure() -> Result<()> {
+    const REWRITES: i32 = 5;
+    let underscore: TRRBTPattern = serde_json::from_value(json!({"main": [["_"]]}))?;
+    for i in 0..REWRITES {
+        let initial_pattern_value = json!({
+            "main": [(0..REWRITES).map(|n| {
+                if n < i {
+                    "Y"
+                } else {
+                    "X"
+                }
+            }).collect::<Vec<&str>>()],
+        });
+        let initial_pattern: TRRBTPattern = serde_json::from_value(initial_pattern_value.clone())?;
+        let test_game = json!({
+            "name": "All Quits",
+            "desc": "All quits after failing its first rewrite",
+            "tree": {
+                "type": "order",
+                "children": [
+                    {
+                        "type": "set-board",
+                        "pattern": initial_pattern_value
+                    },
+                    {
+                        "type": "all",
+                        "children": make_rewrites(-1, REWRITES)
+                    }
+                ]
+            }
+        });
+
+        let mut cmp = Comparer {
+            expected_name: "All Quits".to_string(),
+            expected_description: "All quits after failing its first rewrite".to_string(),
+            board_states: vec![],
+        };
+
+        let mut intrp =
+            Interpreter::new(BehaviorTree::load_from_json_text(&test_game.to_string())?);
+        intrp.run_full(&mut cmp)?;
+
+        let mut iter = cmp.board_states.into_iter();
+        // push set board
+        assert_eq!(iter.next(), Some(TRRBTPattern::default()));
+        // do set-board and pop
+        assert_eq!(iter.next(), Some(initial_pattern.clone()));
+        // push all
+        assert_eq!(iter.next(), Some(initial_pattern.clone()));
+        // push first rewrite
+        assert_eq!(iter.next(), Some(initial_pattern.clone()));
+
+        for j in 0..i {
+            let expected_underscores = j + 1;
+            let bs = iter.next().unwrap();
+            assert_eq!(
+                bs.matches(&underscore).next().unwrap().1.count(),
+                expected_underscores as usize,
+                "Didn't get the expected rewrite: {:?}",
+                bs
+            );
+            let bs = iter.next().unwrap();
+            assert_eq!(
+                bs.matches(&underscore).next().unwrap().1.count(),
+                expected_underscores as usize,
+                "Didn't get the expected rewrite: {:?}",
+                bs
+            );
+        }
+
+        let final_pattern: TRRBTPattern = serde_json::from_value(json!({
+            "main": [(0..REWRITES).map(|n| if n < i {
+                "_"
+            } else {
+                "X"
+            }).collect::<Vec<_>>()]
+        }))?;
+        while let Some(bs) = iter.next() {
+            assert_eq!(bs, final_pattern);
+        }
+    }
+    Ok(())
+}
+
+#[test]
 fn test_none_finishes() -> Result<()> {
     const REWRITES: i32 = 5;
     let test_game = json!({
@@ -391,18 +476,19 @@ fn test_win_ends_game() -> Result<()> {
         serde_json::from_value(json!({ "main": [["_", "_", "Y", "_", "_"]] }))?,
     ];
 
-    for _ in 0..(( REWRITES-1 ) * 2) {
+    for _ in 0..((REWRITES - 1) * 2) {
         v.push(serde_json::from_value(
             json!({ "main": [["_", "_", "Y", "_", "_"]] }),
         )?);
     }
 
-    v.push(serde_json::from_value(json!({ "main": [["_", "_", "_", "_", "_"]]}))?);
+    v.push(serde_json::from_value(
+        json!({ "main": [["_", "_", "_", "_", "_"]]}),
+    )?);
     assert_eq!(cmp.board_states, v);
 
     Ok(())
 }
-
 
 #[test]
 fn test_lose_ends_game() -> Result<()> {
@@ -449,13 +535,15 @@ fn test_lose_ends_game() -> Result<()> {
         serde_json::from_value(json!({ "main": [["_", "_", "Y", "_", "_"]] }))?,
     ];
 
-    for _ in 0..(( REWRITES-1 ) * 2) {
+    for _ in 0..((REWRITES - 1) * 2) {
         v.push(serde_json::from_value(
             json!({ "main": [["_", "_", "Y", "_", "_"]] }),
         )?);
     }
 
-    v.push(serde_json::from_value(json!({ "main": [["_", "_", "_", "_", "_"]]}))?);
+    v.push(serde_json::from_value(
+        json!({ "main": [["_", "_", "_", "_", "_"]]}),
+    )?);
     assert_eq!(cmp.board_states, v);
 
     Ok(())
