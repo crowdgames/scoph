@@ -1,4 +1,3 @@
-
 use petgraph::graph::NodeIndex;
 
 use crate::{
@@ -74,7 +73,9 @@ impl Call {
                 all_failed: true,
             },
             N::Order => StackState::Order { any_success: false },
-            N::None | N::Win { .. } | N::Lose { .. } => StackState::None { all_failed: true },
+            N::None | N::Win { .. } | N::Lose { .. } | N::Draw => {
+                StackState::None { all_failed: true }
+            }
             N::All => StackState::All {
                 all_succeeded: true,
             },
@@ -187,6 +188,21 @@ impl Call {
                 } else {
                     Ok(Eval::Push(neighbors[self.child as usize]))
                 }
+            }
+
+            N::Draw => {
+                let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
+                let StackState::None { all_failed } = self.state else {
+                    unreachable!()
+                };
+
+                Ok(if !all_failed {
+                    Eval::End(Outcome::Tie)
+                } else if self.child as usize >= neighbors.len() {
+                    Eval::Finished(false)
+                } else {
+                    Eval::Push(neighbors[self.child as usize])
+                })
             }
 
             N::SetBoard { pattern } => {
