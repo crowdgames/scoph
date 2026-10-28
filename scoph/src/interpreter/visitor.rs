@@ -4,9 +4,6 @@ use crate::{common::TRRBTPattern, interpreter::BehaviorTree};
 
 // tells the interpreter what the visitor is allowed to do
 pub trait Capabilities {
-    fn can_startup() -> bool {
-        false
-    }
     fn can_view_board() -> bool {
         false
     }
@@ -34,10 +31,6 @@ impl Capabilities for ViewBoardOnly {
 #[derive(Default)]
 pub struct Full;
 impl Capabilities for Full {
-    fn can_startup() -> bool {
-        true
-    }
-
     fn can_view_board() -> bool {
         true
     }

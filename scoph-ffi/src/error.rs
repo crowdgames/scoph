@@ -20,6 +20,10 @@ pub enum ScophError {
     MissingNodeId,
     /// Tried getting checking the outcome of an interpreter while it's unfinished.
     NoOutcome,
+
+    AlreadyStarted,
+
+    HasntStarted,
 }
 
 impl From<IError> for ScophError {
@@ -29,6 +33,8 @@ impl From<IError> for ScophError {
             IError::MissingLayerOnDest(_) => Self::MissingLayerOnDest,
             IError::MissingLayerOnSrc(_) => Self::MissingLayerOnSrc,
             IError::MissingNodeId(_) => Self::MissingNodeId,
+            IError::AlreadyStarted => Self::AlreadyStarted,
+            IError::HasntStarted => Self::HasntStarted,
         }
     }
 }
@@ -47,6 +53,12 @@ pub extern "C" fn scoph_strerror(error: ScophError) -> *const c_char {
         ScophError::MissingLayerOnDest => c"Missing layer on destination",
         ScophError::MissingNodeId => c"Missing a node with the given ID",
         ScophError::NoOutcome => c"Interpreter hasn't finished",
+        ScophError::AlreadyStarted => {
+            c"Tried calling startup on an interpreter that already started"
+        }
+        ScophError::HasntStarted => {
+            c"Tried calling step on an interpreter that hansn't called startup yet"
+        }
     }
     .as_ptr()
 }

@@ -1,8 +1,8 @@
 use toodee::Coordinate;
 
 use super::*;
-use pretty_assertions::assert_eq;
 use anyhow::Result;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn test_pattern_matches_single_char_and_layer() {
@@ -36,14 +36,118 @@ fn test_pattern_rewrite() -> Result<()> {
     let rb = TRRBTPattern::from([("main", toodee_pattern(3, 3, ["B"; 9]))]);
     dest.rewrite_at(3, 3, "main", &rb)?;
 
-    assert_eq!(dest, TRRBTPattern::from([("main", toodee_pattern(6, 6, [
-        "X", ".", ".", ".", ".", ".",
-        ".", "O", "O", ".", ".", ".",
-        ".", "O", "O", ".", ".", ".",
-        ".", ".", ".", "B", "B", "B",
-        ".", ".", ".", "B", "B", "B",
-        ".", ".", ".", "B", "B", "B",
-    ]))]));
+    assert_eq!(
+        dest,
+        TRRBTPattern::from([(
+            "main",
+            toodee_pattern(
+                6,
+                6,
+                [
+                    "X", ".", ".", ".", ".", ".", ".", "O", "O", ".", ".", ".", ".", "O", "O", ".",
+                    ".", ".", ".", ".", ".", "B", "B", "B", ".", ".", ".", "B", "B", "B", ".", ".",
+                    ".", "B", "B", "B",
+                ]
+            )
+        )])
+    );
 
     Ok(())
+}
+
+// transform tests
+#[test]
+fn test_rotated_90_tic_tac_toe() {
+    let og = TRRBTPattern::from([("main", toodee_pattern(1, 3, ["X", "X", "X"]))]);
+
+    assert_eq!(
+        og.rotated_90(),
+        TRRBTPattern::from([("main", toodee_pattern(3, 1, ["X", "X", "X"]))])
+    );
+}
+
+#[test]
+fn test_rotate_90_tic_tac_toe_2() {
+    let og = TRRBTPattern::from([("main", toodee_pattern(3, 1, ["X", "X", "X"]))]);
+
+    assert_eq!(
+        og.rotated_90(),
+        TRRBTPattern::from([("main", toodee_pattern(1, 3, ["X", "X", "X"]))])
+    );
+}
+
+#[test]
+fn test_rotate_90_tic_tac_toe_diag() {
+    let og = TRRBTPattern::from([(
+        "main",
+        toodee_pattern(3, 3, ["X", ".", ".", ".", "X", ".", ".", ".", "X"]),
+    )]);
+
+    assert_eq!(
+        og.rotated_90(),
+        TRRBTPattern::from([(
+            "main",
+            toodee_pattern(3, 3, [".", ".", "X", ".", "X", ".", "X", ".", "."])
+        )])
+    );
+}
+
+#[test]
+fn test_rotate_90_tic_tac_toe_diag2() {
+    let og = TRRBTPattern::from([(
+        "main",
+        toodee_pattern(3, 3, [".", ".", "X", ".", "X", ".", "X", ".", "."]),
+    )]);
+
+    assert_eq!(
+        og.rotated_90(),
+        TRRBTPattern::from([(
+            "main",
+            toodee_pattern(3, 3, ["X", ".", ".", ".", "X", ".", ".", ".", "X"])
+        )])
+    );
+}
+
+#[test]
+fn test_skew_tic_tac_toe() {
+    let og = TRRBTPattern::from([("main", toodee_pattern(3, 1, ["X", "X", "X"]))]);
+    assert_eq!(
+        og.skewed(),
+        TRRBTPattern::from([(
+            "main",
+            toodee_pattern(3, 3, ["X", ".", ".", ".", "X", ".", ".", ".", "X"])
+        )])
+    )
+}
+
+// basing these tests on what the web editor already does
+#[test]
+fn test_skew_perfectly_vertical() {
+    let og = TRRBTPattern::from([("main", toodee_pattern(1, 3, ["X", "X", "X"]))]);
+    assert_eq!(
+        og.skewed(),
+        TRRBTPattern::from([("main", toodee_pattern(1, 3, ["X", "X", "X"]))])
+    )
+}
+
+#[test]
+fn test_skew_multirow() {
+    let og = TRRBTPattern::from([(
+        "main",
+        toodee_pattern(3, 3, ["O", "X", "O", "O", "X", "O", "O", "X", "O"]),
+    )]);
+
+    assert_eq!(
+        og.skewed(),
+        TRRBTPattern::from([(
+            "main",
+            toodee_pattern(
+                3,
+                5,
+                [
+                    "O", ".", ".", "O", "X", ".", "O", "X", "O", ".", "X", "O", ".", ".", "O"
+                ]
+            )
+        )])
+    );
 }

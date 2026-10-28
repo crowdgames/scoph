@@ -1,5 +1,6 @@
 mod err;
 mod stack;
+mod transforms;
 mod tree;
 mod visitor;
 
@@ -14,6 +15,7 @@ pub use visitor::Visitor;
 use petgraph::graph::NodeIndex;
 pub use tree::BehaviorTree;
 
+use crate::interpreter::transforms::TransformStack;
 use crate::{
     common::TRRBTPattern,
     interpreter::{
@@ -30,8 +32,20 @@ pub struct Interpreter {
     tree: BehaviorTree,
     board: TRRBTPattern,
     breakpoints: HashMap<NodeIndex, String>,
+    started: bool,
+    waiting_for_choice: bool,
     call_stack: Vec<Call>,
+    transform_stack: TransformStack,
     outcome: Option<Outcome>,
+}
+
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+#[repr(C)]
+pub enum Status {
+    #[default]
+    Unstarted,
+    InProgress,
+    Finished,
 }
 
 impl Interpreter {
@@ -43,6 +57,9 @@ impl Interpreter {
             board: Default::default(),
             breakpoints: HashMap::new(),
             call_stack: Default::default(),
+            started: Default::default(),
+            waiting_for_choice: Default::default(),
+            transform_stack: Default::default(),
             outcome: None,
         };
 
@@ -84,9 +101,16 @@ impl Interpreter {
         &self.tree
     }
 
-    /// Invokes `Visitor::startup`
-    pub fn startup<V: Visitor>(&mut self, visitor: &mut V) {
-        visitor.startup(self.tree.name(), self.tree.description());
+    /// Invokes `Visitor::startup`. Can only be called once, intended to call init functions of game
+    /// engines using scoph that don't use any of the [`Interpreter::run`] methods
+    pub fn startup<V: Visitor>(&mut self, visitor: &mut V) -> Result<(), IError> {
+        if !self.started {
+            visitor.startup(self.tree.name(), self.tree.description());
+            self.started = true;
+            Ok(())
+        } else {
+            Err(IError::AlreadyStarted)
+        }
     }
 
     /// Invokes `Visitor::view_board`
@@ -97,9 +121,13 @@ impl Interpreter {
     /// Causes the interpreter to take a step in its evaluation. If successful, will return an
     /// option that if some means the game is concluded with the provided outcome. Otherwise gives an
     /// interpreter error
-    pub fn step(&mut self) -> Result<bool, IError> {
+    pub fn step(&mut self) -> Result<Status, IError> {
+        if !self.started {
+            return Err(IError::HasntStarted);
+        }
+
         if self.outcome.is_some() {
-            return Ok(true);
+            return Ok(Status::Finished);
         }
 
         // peek at the top of the call stack, perform node actions to the tree/board. Provide a
@@ -111,7 +139,7 @@ impl Interpreter {
             if self.outcome.is_none() {
                 self.outcome = Some(Outcome::Tie);
             }
-            return Ok(true);
+            return Ok(Status::Finished);
         };
 
         match call_result {
@@ -127,24 +155,22 @@ impl Interpreter {
             Eval::End(outcome) => {
                 self.call_stack.clear();
                 self.outcome = Some(outcome);
-                return Ok(true);
+                return Ok(Status::Finished);
             }
         }
 
-        Ok(false)
+        Ok(Status::InProgress)
     }
 
     /// Runs an entire scoph program without stopping. Will run the visitor methods on the
     /// specified capabilities.
     pub fn run<V: Visitor, C: Capabilities>(&mut self, visitor: &mut V) -> Result<(), IError> {
-        if C::can_startup() {
-            visitor.startup(self.tree.name(), self.tree.description());
-        }
+        self.startup(visitor)?;
 
         loop {
             match self.step() {
-                Ok(finished) => {
-                    if finished {
+                Ok(status) => {
+                    if status == Status::Finished {
                         break;
                     }
 

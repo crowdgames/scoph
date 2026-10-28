@@ -1,4 +1,7 @@
+use std::collections::HashMap;
+
 use petgraph::graph::NodeIndex;
+use toodee::Coordinate;
 
 use crate::{
     common::{NodeAction, PlayerId, TRRBTPattern},
@@ -6,10 +9,19 @@ use crate::{
 };
 
 enum StackState {
-    LoopUntilAll { any_success: bool, all_failed: bool },
-    Order { any_success: bool },
-    None { all_failed: bool },
-    All { all_succeeded: bool },
+    LoopUntilAll {
+        any_success: bool,
+        all_failed: bool,
+    },
+    Order {
+        any_success: bool,
+    },
+    None {
+        all_failed: bool,
+    },
+    All {
+        all_succeeded: bool,
+    },
     SingleAction,
 }
 
@@ -45,6 +57,39 @@ impl TryFrom<&NodeAction> for Transform {
     }
 }
 
+/// Transform-related errors
+pub enum TError {
+    /// Tried applying a pattern transform on something with no pattern
+    Patternless,
+    /// Tried applying a chars transform on something without any chars
+    Charless,
+}
+
+impl Transform {
+    pub fn apply(&self, na: &NodeAction) -> Result<NodeAction, TError> {
+        use TError as T;
+        match self {
+            Transform::Ident => todo!(),
+            Transform::Rotate { remorig } => {
+                match na {
+                    _ => Err(T::Patternless),
+                }
+            },
+            Transform::Skew { remorig } => {
+                match na {
+                    _ => Err(T::Patternless),
+                }
+            }
+            Transform::SwapOnly { what, with } => {
+                match na {
+                    _ => Err(T::Charless),
+                }
+            }
+            Transform::Link { target_id } => todo!(),
+        }
+    }
+}
+
 pub struct Call {
     node_index: NodeIndex,
     child: u32,
@@ -61,6 +106,7 @@ pub enum Outcome {
 pub enum Eval {
     Finished(bool),
     Push(NodeIndex),
+    // PlayerChoice(PlayerId, Vec<NodeIndex>),
     End(Outcome),
 }
 
@@ -90,6 +136,10 @@ impl Call {
             child: 0,
             state,
         }
+    }
+
+    pub fn node_index(&self) -> NodeIndex {
+        self.node_index
     }
 
     pub fn evaluate(

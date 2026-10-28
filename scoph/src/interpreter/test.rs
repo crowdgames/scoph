@@ -94,9 +94,9 @@ fn test_loop_until_all_with_set_board() -> Result<()> {
     };
 
     // Idea is that this tree will run forever, do to the semantics of the language
-    int.startup(&mut cmp);
+    int.startup(&mut cmp)?;
     for _ in 0..500 {
-        assert_matches!(int.step(), Ok(false));
+        assert_matches!(int.step(), Ok(Status::InProgress));
         int.view_board(&mut cmp);
     }
 

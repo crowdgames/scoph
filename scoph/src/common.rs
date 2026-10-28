@@ -179,6 +179,53 @@ impl TRRBTPattern {
             .ok_or(IError::MissingLayerOnSrc(layer_name.to_string()))
             .map(|grid| grid[(x, y)].as_ptr())
     }
+
+    /// Creates a rotated version of this pattern 90 degrees counter clockwise.
+    pub fn rotated_90(&self) -> Self {
+        let mut out = LayersAndPatterns::new();
+
+        for (layer_name, data) in self.0.iter() {
+            let mut new_data = TooDee::with_capacity(data.num_cols() * data.num_rows());
+
+            for col_index in 0..data.num_cols() {
+                new_data.push_row(data.col(col_index).rev().map(ToOwned::to_owned));
+            }
+
+            out.insert(layer_name.to_owned(), new_data);
+        }
+
+        Self(out)
+    }
+
+    /// Creates a skewed version of this pattern, shifting rows into a diagonal line from the top
+    /// left to bottom right.
+    pub fn skewed(&self) -> Self {
+        // 100% copied from the original web editor, translated to rust
+        let mut out = LayersAndPatterns::new();
+
+        for (layer_name, data) in self.0.iter() {
+            let rows = data.num_rows();
+            let cols = data.num_cols();
+            let mut new_data = TooDee::with_capacity(rows * cols);
+
+            for rr in 0..(rows + cols - 1) {
+                new_data.push_row((0..cols).map(|cc| {
+                    let skewed = rr.checked_sub(cc);
+                    if let Some(skewed) = skewed
+                        && skewed < rows
+                    {
+                        data[(cc, skewed)].clone()
+                    } else {
+                        c".".to_owned()
+                    }
+                }));
+            }
+
+            out.insert(layer_name.to_owned(), new_data);
+        }
+
+        Self(out)
+    }
 }
 
 impl ToString for TRRBTPattern {

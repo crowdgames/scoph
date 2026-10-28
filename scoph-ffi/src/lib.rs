@@ -1,7 +1,7 @@
 use std::ffi::{CStr, OsStr, c_char};
 
 /// cbindgen:ignore
-use scoph::interpreter::{BehaviorTree, Interpreter, Outcome};
+use scoph::interpreter::{BehaviorTree, Interpreter, Status, Outcome};
 
 pub struct ScophIntrp(Interpreter);
 
@@ -63,10 +63,10 @@ pub extern "C" fn scoph_intrp_step(
 
     match intrp.step() {
         Ok(finished) => unsafe {
-            *res = if finished {
-                ScophIntrpResult::Finished
-            } else {
-                ScophIntrpResult::InProgress
+            *res = match finished {
+                Status::Finished => ScophIntrpResult::Finished,
+                Status::InProgress => ScophIntrpResult::InProgress,
+                Status::Unstarted => ScophIntrpResult::Unstarted,
             }
         },
         Err(i) => {

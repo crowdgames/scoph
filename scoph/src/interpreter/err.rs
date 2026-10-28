@@ -18,4 +18,10 @@ pub enum IError {
 
     #[error("Tree does not have a node with ID \"{0}\"")]
     MissingNodeId(String),
+
+    #[error("Attempted to call startup after it was already called")]
+    AlreadyStarted,
+
+    #[error("Attempted to call step without having called startup")]
+    HasntStarted,
 }
