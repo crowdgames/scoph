@@ -5,6 +5,7 @@ mod tree;
 mod visitor;
 
 use std::collections::HashMap;
+use std::rc::Rc;
 
 pub use err::IError;
 use stack::Call;
@@ -15,7 +16,8 @@ pub use visitor::Visitor;
 use petgraph::graph::NodeIndex;
 pub use tree::BehaviorTree;
 
-use crate::interpreter::transforms::TransformStack;
+use transforms::{Transform, TransformStack};
+
 use crate::{
     common::TRRBTPattern,
     interpreter::{
@@ -29,9 +31,8 @@ mod test;
 
 /// The core of running a scoph game. Holds onto a behavior tree and runs until the game finishes.
 pub struct Interpreter {
-    tree: BehaviorTree,
+    tree: Rc<BehaviorTree>,
     board: TRRBTPattern,
-    breakpoints: HashMap<NodeIndex, String>,
     started: bool,
     waiting_for_choice: bool,
     call_stack: Vec<Call>,
@@ -53,9 +54,8 @@ impl Interpreter {
     pub fn new(tree: BehaviorTree) -> Self {
         let root = tree.root();
         let mut out = Self {
-            tree,
+            tree: Rc::new(tree),
             board: Default::default(),
-            breakpoints: HashMap::new(),
             call_stack: Default::default(),
             started: Default::default(),
             waiting_for_choice: Default::default(),
@@ -68,32 +68,15 @@ impl Interpreter {
         out
     }
 
-    pub fn add_breakpoint(&mut self, id: &str) -> Result<(), IError> {
-        if let Some(index) = self.tree.get_node_by_id(id) {
-            self.breakpoints.insert(index, id.to_string());
-            Ok(())
-        } else {
-            Err(IError::MissingNodeId(id.to_string()))
-        }
-    }
-
-    pub fn remove_breakpoint(&mut self, id: &str) -> Result<(), IError> {
-        if let Some(index) = self.tree.get_node_by_id(id) {
-            self.breakpoints.remove(&index);
-            Ok(())
-        } else {
-            Err(IError::MissingNodeId(id.to_string()))
-        }
-    }
-
-    pub fn at_breakpoint(&self) -> bool {
-        self.call_stack
-            .last()
-            .is_some_and(|c| self.breakpoints.contains_key(&c.info().0))
-    }
-
     fn push_call(&mut self, node_index: NodeIndex) {
-        self.call_stack.push(Call::new(&self.tree, node_index));
+        if self.transform_stack.fresh() {
+        } else {
+            let (call, maybe_transform) = Call::new(self.tree.clone(), node_index);
+            self.call_stack.push(call);
+            if let Some(transform) = maybe_transform {
+                self.transform_stack.push(transform);
+            }
+        }
     }
 
     /// Returns a reference to this interpreter's behavior tree
@@ -133,7 +116,7 @@ impl Interpreter {
         // peek at the top of the call stack, perform node actions to the tree/board. Provide a
         // call result indicating if the node succeeded.
         let call_result = if let Some(call) = self.call_stack.last_mut() {
-            call.evaluate(&self.tree, &mut self.board)?
+            call.evaluate(&mut self.board, &mut self.transform_stack)?
         } else {
             // stack is empty
             if self.outcome.is_none() {
@@ -143,15 +126,26 @@ impl Interpreter {
         };
 
         match call_result {
-            Eval::Finished(succeeded) => {
+            Eval::Finished(mut succeeded) => {
                 let _prev = self.call_stack.pop();
-                if let Some(call) = self.call_stack.last_mut() {
-                    call.child_finished(succeeded);
+                let mut iter = self.call_stack.iter_mut().rev();
+
+                // let consecutive transform calls pass the value until a real node gets it.
+                while let Some(pass) = iter.next().and_then(|call| call.child_finished(succeeded)) {
+                    succeeded = pass;
                 }
             }
             Eval::Push(node_index) => {
                 self.push_call(node_index);
             }
+
+            Eval::TransformFinished => {
+                self.transform_stack.pop_transform();
+            }
+
+            Eval::TransformPush(node_index, transform) => {
+            }
+
             Eval::End(outcome) => {
                 self.call_stack.clear();
                 self.outcome = Some(outcome);
@@ -179,10 +173,6 @@ impl Interpreter {
                     }
                 }
                 Err(intrp_err) => {
-                    if C::can_stack_trace() {
-                        visitor.stack_trace(&self.tree, self.call_stack.iter().map(Call::info));
-                    }
-
                     return Err(intrp_err);
                 }
             }

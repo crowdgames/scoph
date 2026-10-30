@@ -1,97 +1,54 @@
-use std::collections::HashMap;
+use std::rc::Rc;
 
 use petgraph::graph::NodeIndex;
-use toodee::Coordinate;
 
 use crate::{
     common::{NodeAction, PlayerId, TRRBTPattern},
-    interpreter::{BehaviorTree, IError, visitor::StackFrameInfo},
+    interpreter::{
+        BehaviorTree, IError,
+        transforms::{Transform, TransformStack},
+        visitor::StackFrameInfo,
+    },
 };
 
 enum StackState {
-    LoopUntilAll {
-        any_success: bool,
-        all_failed: bool,
-    },
-    Order {
-        any_success: bool,
-    },
-    None {
-        all_failed: bool,
-    },
-    All {
-        all_succeeded: bool,
-    },
+    LoopUntilAll { any_success: bool, all_failed: bool },
+    Order { any_success: bool },
+    None { all_failed: bool },
+    All { all_succeeded: bool },
+    Transform,
     SingleAction,
 }
 
-/// Signifies that the provided action is not a transform node
-#[derive(Debug)]
-pub struct NonTransformNode;
-
-pub enum Transform {
-    Ident,
-    Rotate { remorig: bool },
-    Skew { remorig: bool },
-    SwapOnly { what: String, with: String },
-    Link { target_id: String },
+enum CallSource {
+    Tree {
+        tree: Rc<BehaviorTree>,
+        node_index: NodeIndex,
+    },
+    TransformStack(NodeAction),
 }
 
-impl TryFrom<&NodeAction> for Transform {
-    type Error = NonTransformNode;
+#[derive(Debug, Default)]
+struct ChildlessNode;
 
-    fn try_from(value: &NodeAction) -> Result<Self, Self::Error> {
-        match value {
-            &NodeAction::XSkew { remorig } => Ok(Self::Skew { remorig }),
-            &NodeAction::XIdent => Ok(Self::Ident),
-            &NodeAction::XRotate { remorig } => Ok(Self::Rotate { remorig }),
-            NodeAction::XSwap { what, with } => Ok(Self::SwapOnly {
-                what: what.to_owned(),
-                with: with.to_owned(),
-            }),
-            NodeAction::XLink { target } => Ok(Self::Link {
-                target_id: target.to_owned(),
-            }),
-            _ => Err(NonTransformNode),
+impl CallSource {
+    fn action(&self) -> &NodeAction {
+        match self {
+            Self::Tree { tree, node_index } => tree.get_node_action(*node_index),
+            Self::TransformStack(na) => na,
         }
     }
-}
 
-/// Transform-related errors
-pub enum TError {
-    /// Tried applying a pattern transform on something with no pattern
-    Patternless,
-    /// Tried applying a chars transform on something without any chars
-    Charless,
-}
-
-impl Transform {
-    pub fn apply(&self, na: &NodeAction) -> Result<NodeAction, TError> {
-        use TError as T;
+    fn children(&self) -> Result<impl Iterator<Item = NodeIndex>, ChildlessNode> {
         match self {
-            Transform::Ident => todo!(),
-            Transform::Rotate { remorig } => {
-                match na {
-                    _ => Err(T::Patternless),
-                }
-            },
-            Transform::Skew { remorig } => {
-                match na {
-                    _ => Err(T::Patternless),
-                }
-            }
-            Transform::SwapOnly { what, with } => {
-                match na {
-                    _ => Err(T::Charless),
-                }
-            }
-            Transform::Link { target_id } => todo!(),
+            Self::Tree { tree, node_index } => Ok(tree.get_node_neighbors(*node_index)),
+            _ => Err(ChildlessNode),
         }
     }
 }
 
 pub struct Call {
-    node_index: NodeIndex,
+    source: CallSource,
     child: u32,
     state: StackState,
 }
@@ -104,16 +61,22 @@ pub enum Outcome {
 }
 
 pub enum Eval {
+    // behavior tree transforms
     Finished(bool),
     Push(NodeIndex),
-    // PlayerChoice(PlayerId, Vec<NodeIndex>),
+
+    // special evals for transforms
+    TransformPush(Call),
+    TransformFinished,
     End(Outcome),
 }
 
 impl Call {
-    pub fn new(tree: &BehaviorTree, node_index: NodeIndex) -> Self {
+    pub fn new(tree: Rc<BehaviorTree>, node_index: NodeIndex) -> (Self, Option<Transform>) {
         use NodeAction as N;
-        let state = match tree.get_node_action(node_index) {
+        let na = tree.get_node_action(node_index);
+        let maybe_transform = na.try_into().ok();
+        let state = match na {
             N::LoopUntilAll => StackState::LoopUntilAll {
                 any_success: false,
                 all_failed: true,
@@ -128,29 +91,41 @@ impl Call {
             N::SetBoard { .. } | N::Rewrite { .. } | N::Match { .. } | N::MatchTimes { .. } => {
                 StackState::SingleAction
             }
-            _ => todo!(),
+            _ => {
+                if maybe_transform.is_some() {
+                    StackState::Transform
+                } else {
+                    todo!()
+                }
+            }
         };
 
-        Self {
-            node_index,
-            child: 0,
-            state,
-        }
+        (
+            Self {
+                source: CallSource::Tree { node_index, tree },
+                child: 0,
+                state,
+            },
+            maybe_transform,
+        )
     }
 
-    pub fn node_index(&self) -> NodeIndex {
-        self.node_index
-    }
+    const CHILDLESS_ERROR_MESSAGE: &str =
+        "Tried to the get the children of nodes from a source that doesn't have children";
 
     pub fn evaluate(
         &mut self,
-        tree: &BehaviorTree,
         board: &mut TRRBTPattern,
+        transform_stack: &mut TransformStack,
     ) -> Result<Eval, IError> {
         use crate::common::NodeAction as N;
-        match tree.get_node_action(self.node_index) {
+        match self.source.action() {
             N::Order => {
-                let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
+                let neighbors: Vec<_> = self
+                    .source
+                    .children()
+                    .expect(Self::CHILDLESS_ERROR_MESSAGE)
+                    .collect();
                 if self.child as usize >= neighbors.len() {
                     let StackState::Order { any_success } = self.state else {
                         unreachable!();
@@ -164,7 +139,11 @@ impl Call {
             }
 
             N::LoopUntilAll => {
-                let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
+                let neighbors: Vec<_> = self
+                    .source
+                    .children()
+                    .expect(Self::CHILDLESS_ERROR_MESSAGE)
+                    .collect();
                 if self.child as usize >= neighbors.len() {
                     let StackState::LoopUntilAll {
                         any_success,
@@ -186,7 +165,11 @@ impl Call {
             }
 
             N::None => {
-                let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
+                let neighbors: Vec<_> = self
+                    .source
+                    .children()
+                    .expect(Self::CHILDLESS_ERROR_MESSAGE)
+                    .collect();
                 let StackState::None { all_failed } = self.state else {
                     unreachable!()
                 };
@@ -200,7 +183,11 @@ impl Call {
             }
 
             N::Win { pid } => {
-                let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
+                let neighbors: Vec<_> = self
+                    .source
+                    .children()
+                    .expect(Self::CHILDLESS_ERROR_MESSAGE)
+                    .collect();
                 let StackState::None { all_failed } = self.state else {
                     unreachable!()
                 };
@@ -214,7 +201,11 @@ impl Call {
             }
 
             N::All => {
-                let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
+                let neighbors: Vec<_> = self
+                    .source
+                    .children()
+                    .expect(Self::CHILDLESS_ERROR_MESSAGE)
+                    .collect();
                 let StackState::All { all_succeeded } = self.state else {
                     unreachable!()
                 };
@@ -229,7 +220,11 @@ impl Call {
             }
 
             N::Lose { pid } => {
-                let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
+                let neighbors: Vec<_> = self
+                    .source
+                    .children()
+                    .expect(Self::CHILDLESS_ERROR_MESSAGE)
+                    .collect();
                 let StackState::None { all_failed } = self.state else {
                     unreachable!()
                 };
@@ -243,7 +238,11 @@ impl Call {
             }
 
             N::Draw => {
-                let neighbors: Vec<_> = tree.get_node_neighbors(self.node_index).collect();
+                let neighbors: Vec<_> = self
+                    .source
+                    .children()
+                    .expect(Self::CHILDLESS_ERROR_MESSAGE)
+                    .collect();
                 let StackState::None { all_failed } = self.state else {
                     unreachable!()
                 };
@@ -294,11 +293,27 @@ impl Call {
 
                 Ok(Eval::Finished(matched_all))
             }
+
+            action if action.is_transform() => {
+                let children: Vec<_> = self
+                    .source
+                    .children()
+                    .expect(Self::CHILDLESS_ERROR_MESSAGE)
+                    .collect();
+                Ok(if self.child as usize >= children.len() {
+                    Eval::TransformFinished
+                } else if let Some(transformed) = transform_stack.pop_front_source_list() {
+                    todo!()
+                } else {
+                    todo!()
+                })
+            }
+
             _ => todo!(),
         }
     }
 
-    pub fn child_finished(&mut self, succeeded: bool) {
+    pub fn child_finished(&mut self, succeeded: bool) -> Option<bool> {
         use StackState as S;
         match self.state {
             S::LoopUntilAll {
@@ -333,11 +348,14 @@ impl Call {
                 }
                 self.child += 1;
             }
+            S::Transform => return Some(succeeded),
             S::SingleAction => {}
         }
+
+        None
     }
 
     pub fn info(&self) -> StackFrameInfo {
-        (self.node_index, self.child)
+        todo!("I changed how calls are source so forgive me my poor tests")
     }
 }

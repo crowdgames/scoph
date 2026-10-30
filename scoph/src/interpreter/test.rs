@@ -1,7 +1,7 @@
 use std::assert_matches;
 
 use super::*;
-use crate::common::toodee_pattern;
+use crate::{common::toodee_pattern, interpreter::visitor::Dummy};
 use anyhow::Result;
 use pretty_assertions::assert_eq;
 use serde_json::json;
@@ -717,6 +717,20 @@ fn test_tie_ends_game() -> Result<()> {
         json!({ "main": [["_", "_", "_", "_", "_"]]}),
     )?);
     assert_eq!(cmp.board_states, v);
+
+    Ok(())
+}
+
+// transform tests
+#[test]
+fn test_rotate_slant_match() -> Result<()> {
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
+        "scoph/tests/win-transforms.json",
+    )?);
+
+    intrp.run_full(&mut Dummy)?;
+
+    assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
 
     Ok(())
 }

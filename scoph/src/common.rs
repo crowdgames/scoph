@@ -555,4 +555,32 @@ impl NodeAction {
     pub fn default_x_skew() -> Self {
         Self::XSkew { remorig: false }
     }
+
+    /// Check if this node action's contents can be changed by a transform node like x-skew,
+    /// x-rotate, etc.
+    pub fn transformable(&self) -> bool {
+        matches!(
+            self,
+            Self::Rewrite { .. }
+                | Self::RewriteAll { .. }
+                | Self::Match { .. }
+                | Self::MatchTimes { .. }
+                | Self::SetBoard { .. }
+                | Self::LayerTemplate { .. }
+                | Self::AppendRows { .. }
+                | Self::AppendColumns { .. }
+                | Self::Player { .. }
+                | Self::Lose { .. }
+                | Self::Win { .. }
+        )
+    }
+
+    pub fn is_transform(&self) -> bool {
+        matches!(
+            self,
+            Self::XSkew { .. }
+            | Self::XRotate { .. }
+            // TODO: finish others
+        )
+    }
 }

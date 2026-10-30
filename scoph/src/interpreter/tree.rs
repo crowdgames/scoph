@@ -7,12 +7,13 @@ use crate::{
 use anyhow::anyhow;
 use petgraph::graph::{DiGraph, NodeIndex};
 
+#[derive(Debug)]
 pub struct BehaviorNode {
     info: Info,
     action: NodeAction,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct BehaviorEdge;
 
 type TRRBTTree = DiGraph<BehaviorNode, BehaviorEdge>;
@@ -21,6 +22,7 @@ type TRRBTTree = DiGraph<BehaviorNode, BehaviorEdge>;
 
 /// A BehaviorTree is a non-mutating structure that represents the structure of a full TRRBT
 /// program. They can be loaded from a TRRBT json file and be transformed.
+#[derive(Debug)]
 pub struct BehaviorTree {
     name: String,
     desc: String,
