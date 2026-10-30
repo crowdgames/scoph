@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 pub use err::IError;
-use stack::Call;
+use stack::ExecutionFrame;
 pub use stack::Outcome;
 pub use visitor::StackFrameInfo;
 pub use visitor::Visitor;
@@ -35,7 +35,7 @@ pub struct Interpreter {
     board: TRRBTPattern,
     started: bool,
     waiting_for_choice: bool,
-    call_stack: Vec<Call>,
+    execution_stack: Vec<ExecutionFrame>,
     transform_stack: TransformStack,
     outcome: Option<Outcome>,
 }
@@ -56,27 +56,21 @@ impl Interpreter {
         let mut out = Self {
             tree: Rc::new(tree),
             board: Default::default(),
-            call_stack: Default::default(),
+            execution_stack: Default::default(),
             started: Default::default(),
             waiting_for_choice: Default::default(),
             transform_stack: Default::default(),
             outcome: None,
         };
 
-        out.push_call(root);
+        out.push_frame(root);
 
         out
     }
 
-    fn push_call(&mut self, node_index: NodeIndex) {
-        if self.transform_stack.fresh() {
-        } else {
-            let (call, maybe_transform) = Call::new(self.tree.clone(), node_index);
-            self.call_stack.push(call);
-            if let Some(transform) = maybe_transform {
-                self.transform_stack.push(transform);
-            }
-        }
+    fn push_frame(&mut self, node_index: NodeIndex) {
+        let frame = ExecutionFrame::new(self.tree.clone(), node_index);
+        self.execution_stack.push(frame);
     }
 
     /// Returns a reference to this interpreter's behavior tree
@@ -115,7 +109,7 @@ impl Interpreter {
 
         // peek at the top of the call stack, perform node actions to the tree/board. Provide a
         // call result indicating if the node succeeded.
-        let call_result = if let Some(call) = self.call_stack.last_mut() {
+        let call_result = if let Some(call) = self.execution_stack.last_mut() {
             call.evaluate(&mut self.board, &mut self.transform_stack)?
         } else {
             // stack is empty
@@ -127,8 +121,8 @@ impl Interpreter {
 
         match call_result {
             Eval::Finished(mut succeeded) => {
-                let _prev = self.call_stack.pop();
-                let mut iter = self.call_stack.iter_mut().rev();
+                let _prev = self.execution_stack.pop();
+                let mut iter = self.execution_stack.iter_mut().rev();
 
                 // let consecutive transform calls pass the value until a real node gets it.
                 while let Some(pass) = iter.next().and_then(|call| call.child_finished(succeeded)) {
@@ -136,18 +130,19 @@ impl Interpreter {
                 }
             }
             Eval::Push(node_index) => {
-                self.push_call(node_index);
+                self.push_frame(node_index);
             }
 
             Eval::TransformFinished => {
-                self.transform_stack.pop_transform();
+                self.transform_stack.pop();
             }
 
-            Eval::TransformPush(node_index, transform) => {
+            Eval::TransformPush(call) => {
+                self.execution_stack.push(call);
             }
 
             Eval::End(outcome) => {
-                self.call_stack.clear();
+                self.execution_stack.clear();
                 self.outcome = Some(outcome);
                 return Ok(Status::Finished);
             }

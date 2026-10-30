@@ -11,13 +11,36 @@ mod error;
 use error::ScophError;
 
 /// Reads a TRRBT json file and constructs an interpreter. The caller is responsible for freeing the
-/// interpreter from memory with [`scoph_intrp_free`]
+/// interpreter from memory with [`scoph_intrp_free`]. If you want to load an interpreter from json
+/// text directly, see [`scoph_intrp_load_json`].
 #[unsafe(no_mangle)]
 pub extern "C" fn scoph_intrp_load(intrp: *mut *mut ScophIntrp, path: *const c_char) -> ScophError {
     let path = unsafe { CStr::from_ptr(path) };
     let path = unsafe { OsStr::from_encoded_bytes_unchecked(path.to_bytes()) };
 
     let bt = match BehaviorTree::load_from_json_file(path) {
+        Ok(bt) => bt,
+        Err(_) => return ScophError::LoadFailed,
+    };
+
+    let new = ScophIntrp(Interpreter::new(bt));
+    unsafe {
+        *intrp = Box::into_raw(Box::new(new));
+    }
+
+    ScophError::Ok
+}
+
+/// Reads TRRBT json data and constructs an interpreter. The caller is responsible for freeing the
+/// interpreter from memory with [`scoph_intrp_free`]. If you want to load an interpreter from a
+/// json file on the system, see [`scoph_intrp_load`].
+#[unsafe(no_mangle)]
+pub extern "C" fn scoph_intrp_load_json(intrp: *mut *mut ScophIntrp, json_text: *const c_char) -> ScophError {
+    let json_text = match unsafe { CStr::from_ptr(json_text) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return ScophError::BadJson,
+    };
+    let bt = match BehaviorTree::load_from_json_text(json_text) {
         Ok(bt) => bt,
         Err(_) => return ScophError::LoadFailed,
     };

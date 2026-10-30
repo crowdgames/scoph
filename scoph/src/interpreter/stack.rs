@@ -1,4 +1,7 @@
-use std::rc::Rc;
+use std::{
+    collections::{HashSet, VecDeque},
+    rc::Rc,
+};
 
 use petgraph::graph::NodeIndex;
 
@@ -12,20 +15,53 @@ use crate::{
 };
 
 enum StackState {
-    LoopUntilAll { any_success: bool, all_failed: bool },
-    Order { any_success: bool },
-    None { all_failed: bool },
-    All { all_succeeded: bool },
-    Transform,
+    LoopUntilAll {
+        any_success: bool,
+        all_failed: bool,
+    },
+    Order {
+        any_success: bool,
+    },
+    None {
+        all_failed: bool,
+    },
+    All {
+        all_succeeded: bool,
+    },
+    Transform {
+        // list of transforms
+        transforms_list: Vec<Transform>,
+        // transform index to apply
+        transform: usize,
+        // help us only keep unique results
+        seen_transforms: HashSet<NodeAction>,
+    },
     SingleAction,
 }
 
+impl StackState {
+    fn make_transform(remorig: bool, main: Transform) -> Self {
+        let mut transforms_list = vec![];
+        if !remorig {
+            transforms_list.push(Transform::Ident);
+        }
+        transforms_list.push(main);
+        Self::Transform {
+            transforms_list,
+            transform: Default::default(),
+            seen_transforms: Default::default(),
+        }
+    }
+}
+
 enum CallSource {
+    // node action from a real node in the tree
     Tree {
         tree: Rc<BehaviorTree>,
         node_index: NodeIndex,
     },
-    TransformStack(NodeAction),
+    // node action from an applied transform to something actually in the tree
+    Transform(NodeAction),
 }
 
 #[derive(Debug, Default)]
@@ -35,7 +71,7 @@ impl CallSource {
     fn action(&self) -> &NodeAction {
         match self {
             Self::Tree { tree, node_index } => tree.get_node_action(*node_index),
-            Self::TransformStack(na) => na,
+            Self::Transform(na) => na,
         }
     }
 
@@ -47,7 +83,8 @@ impl CallSource {
     }
 }
 
-pub struct Call {
+/// A frame that lives on the execution stack
+pub struct ExecutionFrame {
     source: CallSource,
     child: u32,
     state: StackState,
@@ -62,20 +99,22 @@ pub enum Outcome {
 
 pub enum Eval {
     // behavior tree transforms
+    /// indicates a node has finished and provided a result
     Finished(bool),
+    /// pushing a node onto the ES from the untransformed tree
     Push(NodeIndex),
 
     // special evals for transforms
-    TransformPush(Call),
+    /// Push a
+    TransformPush(ExecutionFrame),
     TransformFinished,
     End(Outcome),
 }
 
-impl Call {
-    pub fn new(tree: Rc<BehaviorTree>, node_index: NodeIndex) -> (Self, Option<Transform>) {
+impl ExecutionFrame {
+    pub fn new(tree: Rc<BehaviorTree>, node_index: NodeIndex) -> Self {
         use NodeAction as N;
         let na = tree.get_node_action(node_index);
-        let maybe_transform = na.try_into().ok();
         let state = match na {
             N::LoopUntilAll => StackState::LoopUntilAll {
                 any_success: false,
@@ -91,23 +130,18 @@ impl Call {
             N::SetBoard { .. } | N::Rewrite { .. } | N::Match { .. } | N::MatchTimes { .. } => {
                 StackState::SingleAction
             }
+            &N::XSkew { remorig } => StackState::make_transform(remorig, Transform::Skew),
+            &N::XRotate { remorig } => StackState::make_transform(remorig, Transform::Rotate),
             _ => {
-                if maybe_transform.is_some() {
-                    StackState::Transform
-                } else {
-                    todo!()
-                }
+                todo!()
             }
         };
 
-        (
-            Self {
-                source: CallSource::Tree { node_index, tree },
-                child: 0,
-                state,
-            },
-            maybe_transform,
-        )
+        Self {
+            source: CallSource::Tree { node_index, tree },
+            child: 0,
+            state,
+        }
     }
 
     const CHILDLESS_ERROR_MESSAGE: &str =
@@ -348,7 +382,7 @@ impl Call {
                 }
                 self.child += 1;
             }
-            S::Transform => return Some(succeeded),
+            S::Transform { .. } => return Some(succeeded),
             S::SingleAction => {}
         }
 
