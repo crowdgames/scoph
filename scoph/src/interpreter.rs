@@ -36,6 +36,7 @@ pub struct Interpreter {
     started: bool,
     waiting_for_choice: bool,
     execution_stack: Vec<ExecutionFrame>,
+    passed_frames: Vec<ExecutionFrame>,
     transform_stack: TransformStack,
     outcome: Option<Outcome>,
 }
@@ -57,6 +58,7 @@ impl Interpreter {
             tree: Rc::new(tree),
             board: Default::default(),
             execution_stack: Default::default(),
+            passed_frames: Default::default(),
             started: Default::default(),
             waiting_for_choice: Default::default(),
             transform_stack: Default::default(),
@@ -95,6 +97,16 @@ impl Interpreter {
         visitor.view_board(&self.board);
     }
 
+    fn restack_passed_frames(&mut self) {
+        assert!(
+            !self.passed_frames.is_empty(),
+            "Can't restack frames if their are none"
+        );
+        while let Some(passer) = self.passed_frames.pop() {
+            self.execution_stack.push(passer);
+        }
+    }
+
     /// Causes the interpreter to take a step in its evaluation. If successful, will return an
     /// option that if some means the game is concluded with the provided outcome. Otherwise gives an
     /// interpreter error
@@ -120,29 +132,53 @@ impl Interpreter {
         };
 
         match call_result {
-            Eval::Finished(mut succeeded) => {
+            Eval::Finished(succeeded) => {
+                // pop frame that finished
                 let _prev = self.execution_stack.pop();
-                let mut iter = self.execution_stack.iter_mut().rev();
 
-                // let consecutive transform calls pass the value until a real node gets it.
-                while let Some(pass) = iter.next().and_then(|call| call.child_finished(succeeded)) {
-                    succeeded = pass;
+                // if our passed_frames is full, that means we need to kill that section of the tree
+                // because we just had a success
+                if !self.passed_frames.is_empty() {
+                    self.passed_frames.clear();
                 }
+
+                // collect transform frames
+                let untransformed = self.transform_stack.is_empty();
+                let mut passing_frames = vec![];
+                while let Some(passer) = self
+                    .execution_stack
+                    .pop_if(|frame| frame.child_finished(succeeded, untransformed).is_some())
+                {
+                    passing_frames.push(passer);
+                }
+                self.passed_frames.append(&mut passing_frames);
             }
+
             Eval::Push(node_index) => {
-                self.push_frame(node_index);
+                if self
+                    .passed_frames
+                    .last()
+                    .is_some_and(|frame| frame.source_index() == node_index)
+                {
+                    self.restack_passed_frames();
+                } else {
+                    self.push_frame(node_index);
+                }
             }
 
             Eval::TransformFinished => {
-                self.transform_stack.pop();
+                assert!(self.passed_frames.is_empty());
+                self.execution_stack.pop();
             }
 
             Eval::TransformPush(call) => {
+                assert!(self.passed_frames.is_empty());
                 self.execution_stack.push(call);
             }
 
             Eval::End(outcome) => {
                 self.execution_stack.clear();
+                self.passed_frames.clear();
                 self.outcome = Some(outcome);
                 return Ok(Status::Finished);
             }

@@ -1,22 +1,31 @@
 use std::collections::VecDeque;
 
-use crate::{common::{NodeAction, TRRBTPattern}, interpreter::stack::ExecutionFrame};
+use crate::{
+    common::{NodeAction, TRRBTPattern},
+    interpreter::stack::ExecutionFrame,
+};
 
 /// Signifies that the provided action is not a transform node
 #[derive(Debug)]
 pub struct NonTransformNode;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Transform {
     Ident,
     Rotate,
     Skew,
 }
 
-fn pattern_transform(na: NodeAction, xform: impl Fn(&TRRBTPattern) -> TRRBTPattern) -> Result<NodeAction, TError> {
+fn pattern_transform(
+    na: &NodeAction,
+    xform: impl Fn(&TRRBTPattern) -> TRRBTPattern,
+) -> Result<NodeAction, TError> {
     use NodeAction as N;
     match na {
-        N::Match { pattern } => Ok(N::Match { pattern: xform( &pattern ) }),
+        N::Match { pattern } => Ok(N::Match {
+            pattern: xform(pattern),
+        }),
+        // TODO: Other nodes with patterns
         _ => Err(TError::Patternless),
     }
 }
@@ -25,15 +34,12 @@ pub enum TError {
     Patternless,
 }
 
-
 impl Transform {
-    pub fn apply(&self, orig: NodeAction) -> Result<NodeAction, TError> {
+    pub fn apply(&self, orig: &NodeAction) -> Result<NodeAction, TError> {
         match self {
-            Transform::Ident => Ok(orig),
-            Transform::Rotate  => {
-                pattern_transform(orig, TRRBTPattern::rotated_90)
-            }
-            Transform::Skew  => pattern_transform(orig, TRRBTPattern::skewed),
+            Transform::Ident => Ok(orig.clone()),
+            Transform::Rotate => pattern_transform(orig, TRRBTPattern::rotated_90),
+            Transform::Skew => pattern_transform(orig, TRRBTPattern::skewed),
         }
     }
 }
@@ -47,6 +53,21 @@ pub struct TransformStack {
 impl TransformStack {
     pub fn push(&mut self, t: Transform) {
         self.stack.push(t);
+    }
+
+    pub fn pop(&mut self) {
+        self.stack.pop();
+    }
+
+    pub fn apply_transforms(&mut self, na: NodeAction) -> NodeAction {
+        self.stack
+            .iter()
+            .rev()
+            .fold(na, |acc, p| p.apply(&acc).unwrap_or(acc))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.stack.is_empty()
     }
 }
 

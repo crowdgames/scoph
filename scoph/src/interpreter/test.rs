@@ -725,7 +725,20 @@ fn test_tie_ends_game() -> Result<()> {
 #[test]
 fn test_rotate_slant_match() -> Result<()> {
     let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
-        "scoph/tests/win-transforms.json",
+        "../games/tests/win-transforms.json",
+    )?);
+
+    intrp.run_full(&mut Dummy)?;
+
+    assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
+
+    Ok(())
+}
+
+#[test]
+fn test_two_child_rotate_slant_match() -> Result<()> {
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
+        "../games/tests/two-child-transforms.json",
     )?);
 
     intrp.run_full(&mut Dummy)?;
