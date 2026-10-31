@@ -162,6 +162,7 @@ impl ExecutionFrame {
             }
             &N::XSkew { remorig } => StackState::make_transform(remorig, Transform::Skew),
             &N::XRotate { remorig } => StackState::make_transform(remorig, Transform::Rotate),
+            N::XIdent => StackState::make_transform(false, Transform::Ident),
             _ => {
                 todo!()
             }
@@ -174,6 +175,10 @@ impl ExecutionFrame {
         }
     }
 
+    fn at_end_of_children(&self, children: &[NodeIndex]) -> bool {
+        self.child >= children.len()
+    }
+
     pub fn evaluate(
         &mut self,
         board: &mut TRRBTPattern,
@@ -183,7 +188,7 @@ impl ExecutionFrame {
         match self.source.action() {
             N::Order => {
                 let neighbors: Vec<_> = self.source.children().collect();
-                if self.child as usize >= neighbors.len() && transform_stack.is_empty() {
+                if self.at_end_of_children(&neighbors) {
                     let StackState::Order { any_success } = self.state else {
                         unreachable!();
                     };
@@ -197,7 +202,7 @@ impl ExecutionFrame {
 
             N::LoopUntilAll => {
                 let neighbors: Vec<_> = self.source.children().collect();
-                if self.child as usize >= neighbors.len() && transform_stack.is_empty() {
+                if self.at_end_of_children(&neighbors) {
                     let StackState::LoopUntilAll {
                         any_success,
                         ref mut all_failed,
@@ -224,7 +229,7 @@ impl ExecutionFrame {
                 };
                 if !all_failed {
                     Ok(Eval::Finished(false))
-                } else if self.child as usize >= neighbors.len() && transform_stack.is_empty() {
+                } else if self.at_end_of_children(&neighbors) {
                     Ok(Eval::Finished(true))
                 } else {
                     Ok(Eval::Push(neighbors[self.child as usize]))
@@ -238,7 +243,7 @@ impl ExecutionFrame {
                 };
                 if !all_failed {
                     Ok(Eval::End(Outcome::Win(pid.clone())))
-                } else if self.child as usize >= neighbors.len() && transform_stack.is_empty() {
+                } else if self.at_end_of_children(&neighbors) {
                     Ok(Eval::Finished(false))
                 } else {
                     Ok(Eval::Push(neighbors[self.child as usize]))
@@ -253,7 +258,7 @@ impl ExecutionFrame {
 
                 Ok(if !all_succeeded {
                     Eval::Finished(false)
-                } else if self.child as usize >= neighbors.len() && transform_stack.is_empty() {
+                } else if self.at_end_of_children(&neighbors) {
                     Eval::Finished(true)
                 } else {
                     Eval::Push(neighbors[self.child as usize])
@@ -267,7 +272,7 @@ impl ExecutionFrame {
                 };
                 if !all_failed {
                     Ok(Eval::End(Outcome::Lose(pid.clone())))
-                } else if self.child as usize >= neighbors.len() && transform_stack.is_empty() {
+                } else if self.at_end_of_children(&neighbors) {
                     Ok(Eval::Finished(false))
                 } else {
                     Ok(Eval::Push(neighbors[self.child as usize]))
@@ -282,7 +287,7 @@ impl ExecutionFrame {
 
                 Ok(if !all_failed {
                     Eval::End(Outcome::Tie)
-                } else if self.child as usize >= neighbors.len() && transform_stack.is_empty() {
+                } else if self.at_end_of_children(&neighbors) {
                     Eval::Finished(false)
                 } else {
                     Eval::Push(neighbors[self.child as usize])
@@ -427,6 +432,10 @@ impl ExecutionFrame {
 
     pub fn source_index(&self) -> NodeIndex {
         self.source.index()
+    }
+
+    pub fn action(&self) -> &NodeAction {
+        self.source.action()
     }
 
     pub fn info(&self) -> StackFrameInfo {

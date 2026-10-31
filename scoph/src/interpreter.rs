@@ -143,7 +143,7 @@ impl Interpreter {
                 }
 
                 // collect transform frames
-                let untransformed = self.transform_stack.is_empty();
+                let untransformed = self.execution_stack.last().is_some_and(|frame| !frame.action().is_transform());
                 let mut passing_frames = vec![];
                 while let Some(passer) = self
                     .execution_stack

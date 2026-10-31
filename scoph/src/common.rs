@@ -1,4 +1,9 @@
-use std::{collections::{BTreeMap, HashMap}, ffi::CString, marker::PhantomData, str::FromStr};
+use std::{
+    collections::{BTreeMap, HashMap},
+    ffi::CString,
+    marker::PhantomData,
+    str::FromStr,
+};
 
 use serde::{
     Deserialize, Serialize,
@@ -578,8 +583,7 @@ impl NodeAction {
     pub fn is_transform(&self) -> bool {
         matches!(
             self,
-            Self::XSkew { .. }
-            | Self::XRotate { .. }
+            Self::XSkew { .. } | Self::XRotate { .. } | Self::XIdent,
             // TODO: finish others
         )
     }
