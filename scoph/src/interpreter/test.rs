@@ -760,3 +760,16 @@ fn test_x_ident() -> Result<()> {
     assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
     Ok(())
 }
+
+#[test]
+fn test_x_spin() -> Result<()> {
+    const X_SPIN_WIN: &str = r#"
+     {"name":"rotate-all-test","desc":"","tree":{"type":"order","children":[{"type":"set-board","comment":"","nid":"","pattern":{"main":[["C","F","I"],["B","E","H"],["A","D","G"]]}},{"type":"win","comment":"","nid":"","children":[{"type":"x-spin","comment":"","nid":"","children":[{"type":"match","pattern":{"main":[["A","B","C"],["D","E","F"],["G","H","I"]]}}],"remorig":false}],"pid":"Jeremy"}],"comment":"","nid":""}}
+    "#;
+
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_text(X_SPIN_WIN)?);
+    intrp.run_full(&mut Dummy)?;
+
+    assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
+    Ok(())
+}

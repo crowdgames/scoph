@@ -1,9 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    ffi::CString,
-    marker::PhantomData,
-    str::FromStr,
-};
+use std::{collections::BTreeMap, ffi::CString, marker::PhantomData, str::FromStr};
 
 use serde::{
     Deserialize, Serialize,
@@ -185,7 +180,7 @@ impl TRRBTPattern {
             .map(|grid| grid[(x, y)].as_ptr())
     }
 
-    /// Creates a rotated version of this pattern 90 degrees counter clockwise.
+    /// Creates a rotated version of this pattern 90 degrees clockwise.
     pub fn rotated_90(&self) -> Self {
         let mut out = LayersAndPatterns::new();
 
@@ -583,7 +578,7 @@ impl NodeAction {
     pub fn is_transform(&self) -> bool {
         matches!(
             self,
-            Self::XSkew { .. } | Self::XRotate { .. } | Self::XIdent,
+            Self::XSkew { .. } | Self::XRotate { .. } | Self::XSpin { .. } | Self::XIdent,
             // TODO: finish others
         )
     }

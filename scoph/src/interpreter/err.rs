@@ -24,4 +24,7 @@ pub enum IError {
 
     #[error("Attempted to call step without having called startup")]
     HasntStarted,
+
+    #[error("An x-link transform points to a target that doesn't exist")]
+    BadLink { target: String },
 }

@@ -35,16 +35,21 @@ enum StackState {
         // help us only keep unique results
         seen_transforms: HashSet<NodeAction>,
     },
+    TransformLink {
+        copied: bool,
+    },
     SingleAction,
 }
 
 impl StackState {
-    fn make_transform(remorig: bool, main: Transform) -> Self {
+    fn make_transform<const N: usize>(remorig: bool, main: [Transform; N]) -> Self {
         let mut transforms_list = vec![];
         if !remorig {
             transforms_list.push(Transform::Ident);
         }
-        transforms_list.push(main);
+        for t in main {
+            transforms_list.push(t);
+        }
         Self::Transform {
             transforms_list,
             transform: Default::default(),
@@ -157,9 +162,18 @@ impl ExecutionFrame {
             N::SetBoard { .. } | N::Rewrite { .. } | N::Match { .. } | N::MatchTimes { .. } => {
                 StackState::SingleAction
             }
-            &N::XSkew { remorig } => StackState::make_transform(remorig, Transform::Skew),
-            &N::XRotate { remorig } => StackState::make_transform(remorig, Transform::Rotate),
-            N::XIdent => StackState::make_transform(false, Transform::Ident),
+            &N::XSkew { remorig } => StackState::make_transform(remorig, [Transform::Skew]),
+            &N::XRotate { remorig } => StackState::make_transform(remorig, [Transform::Rotate90]),
+            &N::XSpin { remorig } => StackState::make_transform(
+                remorig,
+                [
+                    Transform::Rotate90,
+                    Transform::Rotate180,
+                    Transform::Rotate270,
+                ],
+            ),
+            N::XIdent => StackState::make_transform(false, [Transform::Ident]),
+            N::XLink { .. } => StackState::TransformLink { copied: false },
             _ => {
                 todo!()
             }
@@ -340,6 +354,27 @@ impl ExecutionFrame {
                 Ok(Eval::Finished(matched_all))
             }
 
+            // x-link is a transform but it's special, so we have special logic for it
+            N::XLink { target } => {
+                let StackState::TransformLink { ref mut copied } = self.state else {
+                    unreachable!()
+                };
+
+                Ok(if !*copied {
+                    let t = self
+                        .source
+                        .tree()
+                        .get_node_by_id(target)
+                        .ok_or(IError::BadLink {
+                            target: target.to_owned(),
+                        })?;
+                    *copied = true;
+                    Eval::Push(t)
+                } else {
+                    Eval::TransformFinished
+                })
+            }
+
             action if action.is_transform() => {
                 let children: Vec<_> = self.source.children().collect();
 
@@ -422,7 +457,7 @@ impl ExecutionFrame {
                     *all_succeeded = false;
                 }
             }
-            S::Transform { .. } => {
+            S::Transform { .. } | S::TransformLink { .. } => {
                 return Some(succeeded);
             }
             _ => unreachable!(),

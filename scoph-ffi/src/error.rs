@@ -26,6 +26,8 @@ pub enum ScophError {
     AlreadyStarted,
 
     HasntStarted,
+
+    BadLink,
 }
 
 impl From<IError> for ScophError {
@@ -37,6 +39,7 @@ impl From<IError> for ScophError {
             IError::MissingNodeId(_) => Self::MissingNodeId,
             IError::AlreadyStarted => Self::AlreadyStarted,
             IError::HasntStarted => Self::HasntStarted,
+            IError::BadLink  {..}=> Self::BadLink,
         }
     }
 }
@@ -62,6 +65,9 @@ pub extern "C" fn scoph_strerror(error: ScophError) -> *const c_char {
         ScophError::HasntStarted => {
             c"Tried calling step on an interpreter that hansn't called startup yet"
         }
+        ScophError::BadLink => {
+            c"Linked to a target that doesn't exist in the tree"
+        },
     }
     .as_ptr()
 }
