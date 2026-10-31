@@ -4,7 +4,6 @@ mod transforms;
 mod tree;
 mod visitor;
 
-use std::collections::HashMap;
 use std::rc::Rc;
 
 pub use err::IError;
@@ -16,7 +15,7 @@ pub use visitor::Visitor;
 use petgraph::graph::NodeIndex;
 pub use tree::BehaviorTree;
 
-use transforms::{Transform, TransformStack};
+use transforms::TransformStack;
 
 use crate::{
     common::TRRBTPattern,

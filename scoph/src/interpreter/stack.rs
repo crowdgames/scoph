@@ -1,10 +1,7 @@
 use derive_more::Debug;
-use std::{
-    collections::{HashSet, VecDeque},
-    rc::Rc,
-};
+use std::{collections::HashSet, rc::Rc};
 
-use petgraph::graph::{NodeIndex, node_index};
+use petgraph::graph::NodeIndex;
 
 use crate::{
     common::{NodeAction, PlayerId, TRRBTPattern},
@@ -179,6 +176,22 @@ impl ExecutionFrame {
         self.child >= children.len()
     }
 
+    fn short_circuit_eval(
+        &self,
+        children: &[NodeIndex],
+        short_circuit_condition: bool,
+        short_circuit: Eval,
+        reached_end: Eval,
+    ) -> Eval {
+        if short_circuit_condition {
+            short_circuit
+        } else if self.at_end_of_children(children) {
+            reached_end
+        } else {
+            Eval::Push(children[self.child])
+        }
+    }
+
     pub fn evaluate(
         &mut self,
         board: &mut TRRBTPattern,
@@ -223,75 +236,70 @@ impl ExecutionFrame {
             }
 
             N::None => {
-                let neighbors: Vec<_> = self.source.children().collect();
+                let children: Vec<_> = self.source.children().collect();
                 let StackState::None { all_failed } = self.state else {
                     unreachable!()
                 };
-                if !all_failed {
-                    Ok(Eval::Finished(false))
-                } else if self.at_end_of_children(&neighbors) {
-                    Ok(Eval::Finished(true))
-                } else {
-                    Ok(Eval::Push(neighbors[self.child as usize]))
-                }
+                Ok(self.short_circuit_eval(
+                    &children,
+                    !all_failed,
+                    Eval::Finished(false),
+                    Eval::Finished(true),
+                ))
             }
 
             N::Win { pid } => {
-                let neighbors: Vec<_> = self.source.children().collect();
+                let children: Vec<_> = self.source.children().collect();
                 let StackState::None { all_failed } = self.state else {
                     unreachable!()
                 };
-                if !all_failed {
-                    Ok(Eval::End(Outcome::Win(pid.clone())))
-                } else if self.at_end_of_children(&neighbors) {
-                    Ok(Eval::Finished(false))
-                } else {
-                    Ok(Eval::Push(neighbors[self.child as usize]))
-                }
+                Ok(self.short_circuit_eval(
+                    &children,
+                    !all_failed,
+                    Eval::End(Outcome::Win(pid.clone())),
+                    Eval::Finished(false),
+                ))
             }
 
             N::All => {
-                let neighbors: Vec<_> = self.source.children().collect();
+                let children: Vec<_> = self.source.children().collect();
                 let StackState::All { all_succeeded } = self.state else {
                     unreachable!()
                 };
 
-                Ok(if !all_succeeded {
-                    Eval::Finished(false)
-                } else if self.at_end_of_children(&neighbors) {
-                    Eval::Finished(true)
-                } else {
-                    Eval::Push(neighbors[self.child as usize])
-                })
+                Ok(self.short_circuit_eval(
+                    &children,
+                    !all_succeeded,
+                    Eval::Finished(false),
+                    Eval::Finished(true),
+                ))
             }
 
             N::Lose { pid } => {
-                let neighbors: Vec<_> = self.source.children().collect();
+                let children: Vec<_> = self.source.children().collect();
                 let StackState::None { all_failed } = self.state else {
                     unreachable!()
                 };
-                if !all_failed {
-                    Ok(Eval::End(Outcome::Lose(pid.clone())))
-                } else if self.at_end_of_children(&neighbors) {
-                    Ok(Eval::Finished(false))
-                } else {
-                    Ok(Eval::Push(neighbors[self.child as usize]))
-                }
+                Ok(self.short_circuit_eval(
+                    &children,
+                    !all_failed,
+                    Eval::End(Outcome::Lose(pid.clone())),
+                    Eval::Finished(false),
+                ))
             }
 
             N::Draw => {
-                let neighbors: Vec<_> = self.source.children().collect();
+                let children: Vec<_> = self.source.children().collect();
                 let StackState::None { all_failed } = self.state else {
                     unreachable!()
                 };
 
-                Ok(if !all_failed {
-                    Eval::End(Outcome::Tie)
-                } else if self.at_end_of_children(&neighbors) {
-                    Eval::Finished(false)
-                } else {
-                    Eval::Push(neighbors[self.child as usize])
-                })
+                Ok(self.short_circuit_eval(
+                    &children,
+                    !all_failed,
+                    Eval::End(Outcome::Tie),
+                    Eval::Finished(false),
+                ))
             }
 
             N::SetBoard { pattern } => {
@@ -343,6 +351,7 @@ impl ExecutionFrame {
                 else {
                     unreachable!();
                 };
+
                 loop {
                     if self.child >= children.len() {
                         return Ok(Eval::TransformFinished);

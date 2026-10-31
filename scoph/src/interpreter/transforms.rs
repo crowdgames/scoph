@@ -1,13 +1,4 @@
-use std::collections::VecDeque;
-
-use crate::{
-    common::{NodeAction, TRRBTPattern},
-    interpreter::stack::ExecutionFrame,
-};
-
-/// Signifies that the provided action is not a transform node
-#[derive(Debug)]
-pub struct NonTransformNode;
+use crate::common::{NodeAction, TRRBTPattern};
 
 #[derive(Debug, Clone)]
 pub enum Transform {
@@ -37,37 +28,31 @@ pub enum TError {
 impl Transform {
     pub fn apply(&self, orig: &NodeAction) -> Result<NodeAction, TError> {
         match self {
-            Transform::Ident => Ok(orig.clone()),
-            Transform::Rotate => pattern_transform(orig, TRRBTPattern::rotated_90),
-            Transform::Skew => pattern_transform(orig, TRRBTPattern::skewed),
+            Self::Ident => Ok(orig.clone()),
+            Self::Rotate => pattern_transform(orig, TRRBTPattern::rotated_90),
+            Self::Skew => pattern_transform(orig, TRRBTPattern::skewed),
         }
     }
 }
 
 /// Responsible for taking popped nodes and creating transforms
 #[derive(Debug, Default)]
-pub struct TransformStack {
-    stack: Vec<Transform>,
-}
+pub struct TransformStack(Vec<Transform>);
 
 impl TransformStack {
     pub fn push(&mut self, t: Transform) {
-        self.stack.push(t);
+        self.0.push(t);
     }
 
     pub fn pop(&mut self) {
-        self.stack.pop();
+        self.0.pop();
     }
 
-    pub fn apply_transforms(&mut self, na: NodeAction) -> NodeAction {
-        self.stack
+    pub fn apply_transforms(&self, na: NodeAction) -> NodeAction {
+        self.0
             .iter()
             .rev()
             .fold(na, |acc, p| p.apply(&acc).unwrap_or(acc))
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.stack.is_empty()
     }
 }
 
@@ -85,5 +70,17 @@ mod test {
 
     fn match3x() -> NodeAction {
         NodeAction::Match { pattern: three_x() }
+    }
+
+    #[test]
+    fn test_pattern_transform() {
+        let m = match3x();
+        let result = TransformStack(vec![T::Ident, T::Rotate, T::Skew]);
+        assert_eq!(
+            result.apply_transforms(m),
+            NodeAction::Match {
+                pattern: three_x().skewed().rotated_90()
+            }
+        );
     }
 }

@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     ffi::CString,
     marker::PhantomData,
     str::FromStr,
