@@ -389,6 +389,10 @@ impl ExecutionFrame {
 
     pub fn child_finished(&mut self, succeeded: bool, untransformed: bool) -> Option<bool> {
         use StackState as S;
+        if matches!(self.state, S::SingleAction) {
+            return None;
+        }
+
         match self.state {
             S::LoopUntilAll {
                 ref mut any_success,
@@ -398,9 +402,6 @@ impl ExecutionFrame {
                     *any_success = true;
                     *all_failed = false;
                 }
-                if untransformed {
-                    self.child += 1;
-                }
             }
             S::Order {
                 ref mut any_success,
@@ -408,16 +409,10 @@ impl ExecutionFrame {
                 if succeeded {
                     *any_success = true;
                 }
-                if untransformed {
-                    self.child += 1;
-                }
             }
             S::None { ref mut all_failed } => {
                 if succeeded {
                     *all_failed = false;
-                }
-                if untransformed {
-                    self.child += 1;
                 }
             }
             S::All {
@@ -426,14 +421,15 @@ impl ExecutionFrame {
                 if !succeeded {
                     *all_succeeded = false;
                 }
-                if untransformed {
-                    self.child += 1;
-                }
             }
             S::Transform { .. } => {
                 return Some(succeeded);
             }
-            S::SingleAction => {}
+            _ => unreachable!(),
+        }
+
+        if untransformed {
+            self.child += 1;
         }
 
         None
