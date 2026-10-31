@@ -8,6 +8,8 @@ use scoph::interpreter::IError;
 pub enum ScophError {
     /// No error, can continue
     Ok,
+    /// Json file was not parseable for interpreter
+    BadJson,
     /// Failed to load a provided json file
     LoadFailed,
     /// A node in the tree is missing a child at a specific index
@@ -48,6 +50,7 @@ pub extern "C" fn scoph_strerror(error: ScophError) -> *const c_char {
     match error {
         ScophError::LoadFailed => c"Failed to load file",
         ScophError::Ok => c"No error",
+        ScophError::BadJson => c"Json file was not a valid UTF-8 string",
         ScophError::MissingChild => c"Missing child of node",
         ScophError::MissingLayerOnSrc => c"Missing layer on source",
         ScophError::MissingLayerOnDest => c"Missing layer on destination",

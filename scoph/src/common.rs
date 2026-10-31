@@ -1,4 +1,9 @@
-use std::{collections::HashMap, ffi::CString, marker::PhantomData, str::FromStr};
+use std::{
+    collections::{BTreeMap, HashMap},
+    ffi::CString,
+    marker::PhantomData,
+    str::FromStr,
+};
 
 use serde::{
     Deserialize, Serialize,
@@ -12,7 +17,7 @@ use crate::interpreter::IError;
 #[cfg(test)]
 mod test;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PlayerId(pub CString);
 
 impl From<&str> for PlayerId {
@@ -21,7 +26,7 @@ impl From<&str> for PlayerId {
     }
 }
 
-type LayersAndPatterns = HashMap<String, TooDee<CString>>;
+type LayersAndPatterns = BTreeMap<String, TooDee<CString>>;
 
 pub fn toodee_pattern<'a, const N: usize>(
     width: usize,
@@ -40,7 +45,7 @@ pub enum MissingLayer {
     Src(String),
 }
 
-#[derive(Debug, Default, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Default, Hash, Clone, Serialize, PartialEq, Eq)]
 pub struct TRRBTPattern(LayersAndPatterns);
 
 impl TRRBTPattern {
@@ -448,7 +453,7 @@ fn one_times() -> u32 {
     1
 }
 
-#[derive(Debug, strum::Display, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, strum::Display, Clone, Hash, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
 pub enum NodeAction {
@@ -578,8 +583,7 @@ impl NodeAction {
     pub fn is_transform(&self) -> bool {
         matches!(
             self,
-            Self::XSkew { .. }
-            | Self::XRotate { .. }
+            Self::XSkew { .. } | Self::XRotate { .. } | Self::XIdent,
             // TODO: finish others
         )
     }
