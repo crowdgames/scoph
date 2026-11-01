@@ -168,6 +168,9 @@ impl Interpreter {
             Eval::TransformFinished => {
                 assert!(self.passed_frames.is_empty());
                 self.execution_stack.pop();
+                if let Some(frame) = self.execution_stack.last_mut() && !frame.action().is_transform() {
+                    frame.next_branch();
+                }
             }
 
             Eval::TransformPush(call) => {

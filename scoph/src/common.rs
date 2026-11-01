@@ -578,7 +578,11 @@ impl NodeAction {
     pub fn is_transform(&self) -> bool {
         matches!(
             self,
-            Self::XSkew { .. } | Self::XRotate { .. } | Self::XSpin { .. } | Self::XIdent,
+            Self::XSkew { .. }
+                | Self::XRotate { .. }
+                | Self::XSpin { .. }
+                | Self::XIdent
+                | Self::XLink { .. },
             // TODO: finish others
         )
     }

@@ -361,15 +361,19 @@ impl ExecutionFrame {
                 };
 
                 Ok(if !*copied {
-                    let t = self
-                        .source
-                        .tree()
-                        .get_node_by_id(target)
-                        .ok_or(IError::BadLink {
+                    let tree = self.source.tree();
+                    let target_index =
+                        tree.get_node_by_id(target).ok_or_else(|| IError::BadLink {
                             target: target.to_owned(),
                         })?;
                     *copied = true;
-                    Eval::Push(t)
+                    let transformed = transform_stack
+                        .apply_transforms(tree.get_node_action(target_index).clone());
+                    Eval::TransformPush(Self::from_source(Source::Transform {
+                        tree,
+                        transformed,
+                        original_index: target_index,
+                    }))
                 } else {
                     Eval::TransformFinished
                 })
@@ -468,6 +472,10 @@ impl ExecutionFrame {
         }
 
         None
+    }
+
+    pub fn next_branch(&mut self) {
+        self.child += 1;
     }
 
     pub fn source_index(&self) -> NodeIndex {
