@@ -151,3 +151,57 @@ fn test_skew_multirow() {
         )])
     );
 }
+
+#[test]
+fn test_swap_only_on_pid_single_char() {
+    let me = PlayerId(c"Jeremy".into());
+    assert_eq!(me.swap_chars("e", "a"), "Jaramy".into());
+}
+
+#[test]
+fn test_swap_only_on_pid_single_to_many_char() {
+    let me = PlayerId(c"Jeremy".into());
+    assert_eq!(me.swap_chars("e", "ooo"), "Jooorooomy".into());
+}
+
+#[test]
+fn test_swap_only_on_existing() {
+    let ex = PlayerId(c"XOXO".into());
+    assert_eq!(ex.swap_chars("X", "O"), "OXOX".into());
+}
+
+#[test]
+fn test_swap_only_on_pattern_single_char() {
+    let og = TRRBTPattern::from([(
+        "main",
+        toodee_pattern(3, 3, ["O", "X", "O", "O", "X", "O", "O", "X", "O"]),
+    )]);
+
+    assert_eq!(
+        og.swap_chars("O", "X"),
+        TRRBTPattern::from([(
+            "main",
+            toodee_pattern(3, 3, ["X", "O", "X", "X", "O", "X", "X", "O", "X"]),
+        )])
+    );
+}
+
+#[test]
+fn test_swap_only_on_pattern_single_char_to_many_char() {
+    let og = TRRBTPattern::from([(
+        "main",
+        toodee_pattern(3, 3, ["O", "X", "O", "O", "X", "O", "O", "X", "O"]),
+    )]);
+
+    assert_eq!(
+        og.swap_chars("O", "OOO"),
+        TRRBTPattern::from([(
+            "main",
+            toodee_pattern(
+                3,
+                3,
+                ["OOO", "X", "OOO", "OOO", "X", "OOO", "OOO", "X", "OOO"]
+            ),
+        )])
+    );
+}

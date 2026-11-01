@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, ffi::CString, marker::PhantomData, str::FromStr};
 
+use regex::Replacer;
 use serde::{
     Deserialize, Serialize,
     de::{DeserializeSeed, Deserializer, Visitor},
@@ -14,6 +15,14 @@ mod test;
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PlayerId(pub CString);
+
+impl PlayerId {
+    /// Replaces all occurrences of [what] w/ [with] and vice-versa.
+    pub fn swap_chars(&self, what: &str, with: &str) -> Self {
+        let r = swap_chars(self.0.to_str().unwrap(), what, with);
+        Self(CString::from_str(r.as_str()).expect("Should replace into a valid string"))
+    }
+}
 
 impl From<&str> for PlayerId {
     fn from(value: &str) -> Self {
@@ -30,6 +39,26 @@ pub fn toodee_pattern<'a, const N: usize>(
 ) -> TooDee<String> {
     let v: Vec<_> = flat_cells.iter().map(ToString::to_string).collect();
     TooDee::from_vec(width, height, v)
+}
+
+/// Takes a source string and swaps all occurrences of [what] with [with] and vice-versa.
+pub fn swap_chars(source: &str, what: &str, with: &str) -> String {
+    // NOTE: lot of unwraps.
+    let r = regex::Regex::new(&format!("({what}|{with})")).unwrap();
+
+    struct Swapper<'a>(&'a str, &'a str);
+
+    impl<'a> Replacer for Swapper<'a> {
+        fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
+            if &caps[0] == self.0 {
+                dst.push_str(self.1);
+            } else {
+                dst.push_str(self.0);
+            }
+        }
+    }
+    let r = r.replace_all(source, Swapper(what, with));
+    String::from_str(&r).unwrap()
 }
 
 /// Error enum signifying that there was no layer with the given name in either the destination
@@ -226,6 +255,36 @@ impl TRRBTPattern {
 
         Self(out)
     }
+
+    /// Replaces all occurrences of [what] w/ [with] and vice-versa.
+    pub fn swap_chars(&self, what: &str, with: &str) -> Self {
+        Self(
+            self.0
+                .iter()
+                .map(|(layer_name, layer_data)| {
+                    let (w, h) = layer_data.size();
+                    (
+                        layer_name.clone(),
+                        TooDee::from_vec(
+                            w,
+                            h,
+                            layer_data
+                                .into_iter()
+                                .map(|cell| {
+                                    CString::from_str(&swap_chars(
+                                        cell.to_str().unwrap(),
+                                        what,
+                                        with,
+                                    ))
+                                    .expect("Replaced into valid UTF-8")
+                                })
+                                .collect(),
+                        ),
+                    )
+                })
+                .collect(),
+        )
+    }
 }
 
 impl ToString for TRRBTPattern {
@@ -267,6 +326,22 @@ impl<'a, const N: usize> From<[(&'a str, TooDee<String>); N]> for TRRBTPattern {
                         .collect(),
                 ),
             );
+        }
+        Self(core)
+    }
+}
+
+impl<'a, const N: usize, const O: usize, const P: usize> From<[(&'a str, [[&'a str; P]; O]); N]>
+    for TRRBTPattern
+{
+    fn from(value: [(&'a str, [[&'a str; P]; O]); N]) -> Self {
+        let mut core = LayersAndPatterns::new();
+        for (layer_name, arr) in value {
+            let mut layer_data = TooDee::with_capacity(O * P);
+            for row in arr {
+                layer_data.push_row(row.into_iter().map(|s| CString::from_str(s).unwrap()));
+            }
+            core.insert(layer_name.to_string(), layer_data);
         }
         Self(core)
     }

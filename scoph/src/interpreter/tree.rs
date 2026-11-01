@@ -2,6 +2,7 @@ use std::path::Path;
 
 use crate::{
     common::{Info, NodeAction},
+    interpreter::IError,
     parse::{DocNode, TRRBTDocument},
 };
 use anyhow::anyhow;
@@ -31,13 +32,20 @@ pub struct BehaviorTree {
 }
 
 impl BehaviorTree {
+    /// Finds a json file at the provided path and loads it
     pub fn load_from_json_file<T: AsRef<Path>>(path: T) -> anyhow::Result<Self> {
         let s = std::fs::read_to_string(path)?;
         Self::load_from_json_text(s.as_str()).map_err(|e| anyhow!("{}", e))
     }
 
+    /// Loads a tree from json text directly
     pub fn load_from_json_text(text: &str) -> serde_json::Result<Self> {
         serde_json::from_str(text).map(|t: TRRBTDocument| t.into())
+    }
+
+    /// Takes all transformations in a tree and applies them into a new [BehaviorTree].
+    pub fn expand(self) -> Result<Self, IError> {
+        todo!()
     }
 
     /// Gets the name of the game
