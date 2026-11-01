@@ -1,4 +1,4 @@
-use crate::common::{NodeAction, TRRBTPattern};
+use crate::common::{NodeAction, PlayerId, TRRBTPattern};
 
 #[derive(Debug, Clone)]
 pub enum Transform {
@@ -7,6 +7,7 @@ pub enum Transform {
     Rotate180,
     Rotate270,
     Skew,
+    SwapOnly(String, String),
 }
 
 fn pattern_transform(
@@ -39,8 +40,49 @@ fn pattern_transform(
     }
 }
 
+fn chars_transform(
+    na: &NodeAction,
+    pid_xform: impl Fn(&PlayerId) -> PlayerId,
+    pattern_xform: impl Fn(&TRRBTPattern) -> TRRBTPattern,
+) -> Result<NodeAction, TError> {
+    use NodeAction as N;
+    match na {
+        N::Match { pattern } => Ok(N::Match {
+            pattern: pattern_xform(pattern),
+        }),
+        N::Rewrite { lhs, rhs } => Ok(N::Rewrite {
+            lhs: pattern_xform(lhs),
+            rhs: pattern_xform(rhs),
+        }),
+        N::RewriteAll { lhs, rhs } => Ok(N::RewriteAll {
+            lhs: pattern_xform(lhs),
+            rhs: pattern_xform(rhs),
+        }),
+        N::SetBoard { pattern } => Ok(N::SetBoard {
+            pattern: pattern_xform(pattern),
+        }),
+        N::AppendRows { pattern } => Ok(N::AppendRows {
+            pattern: pattern_xform(pattern),
+        }),
+        N::AppendColumns { pattern } => Ok(N::AppendColumns {
+            pattern: pattern_xform(pattern),
+        }),
+        N::Win { pid } => Ok(N::Win {
+            pid: pid_xform(pid),
+        }),
+        N::Lose { pid } => Ok(N::Lose {
+            pid: pid_xform(pid),
+        }),
+        N::Player { pid } => Ok(N::Player {
+            pid: pid_xform(pid),
+        }),
+        _ => Err(TError::Charless),
+    }
+}
+
 pub enum TError {
     Patternless,
+    Charless,
 }
 
 impl Transform {
@@ -53,6 +95,11 @@ impl Transform {
                 pattern.rotated_90().rotated_90().rotated_90()
             }),
             Self::Skew => pattern_transform(orig, TRRBTPattern::skewed),
+            Self::SwapOnly(what, with) => chars_transform(
+                orig,
+                |pid| pid.swap_chars(what, with),
+                |pattern| pattern.swap_chars(what, with),
+            ),
         }
     }
 }

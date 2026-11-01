@@ -174,6 +174,9 @@ impl ExecutionFrame {
             ),
             N::XIdent => StackState::make_transform(false, [Transform::Ident]),
             N::XLink { .. } => StackState::TransformLink { copied: false },
+            N::XSwap { what, with } => {
+                StackState::make_transform(false, [Transform::SwapOnly(what.clone(), with.clone())])
+            }
             _ => {
                 todo!()
             }

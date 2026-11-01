@@ -840,3 +840,14 @@ fn test_x_link_with_transform() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_x_swap_only_with_x_link() -> Result<()> {
+    const GAME: &str = r#"{"name":"swap-chars test","desc":"","tree":{"type":"order","children":[{"type":"set-board","comment":"","nid":"","pattern":{"main":[[".",".","O"],[".","O","."],["O",".","."]]}},{"type":"win","comment":"","nid":"","children":[{"children":[{"children":[{"type":"match","pattern":{"main":[["X","X","X"]]}}],"type":"x-skew","comment":"","nid":"","remorig":false}],"type":"x-rotate","comment":"","nid":"branch","remorig":false},{"type":"x-swap","comment":"","nid":"","children":[{"type":"x-link","comment":"","nid":"","target":"branch"}],"what":"X","with":"O"}],"pid":"Jeremy"}],"comment":"","nid":""}}"#;
+
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_text(GAME)?);
+    intrp.run_full(&mut Dummy)?;
+
+    assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
+    Ok(())
+}

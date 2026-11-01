@@ -657,7 +657,8 @@ impl NodeAction {
                 | Self::XRotate { .. }
                 | Self::XSpin { .. }
                 | Self::XIdent
-                | Self::XLink { .. },
+                | Self::XLink { .. }
+                | Self::XSwap { .. },
             // TODO: finish others
         )
     }
