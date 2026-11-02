@@ -212,15 +212,13 @@ impl Interpreter {
         self.run::<V, Full>(visitor)
     }
 
-    /// get the size of a specified layer if it exists
-    pub fn board_layer_size(&self, layer_name: &str) -> Option<(usize, usize)> {
-        self.board
-            .pattern_sizes()
-            .find_map(|(name, (width, height))| (name == layer_name).then_some((width, height)))
-    }
-
     /// Check if the game is over and has an outcome
     pub fn outcome(&self) -> Option<&Outcome> {
         self.outcome.as_ref()
+    }
+
+    pub fn board_size(&self) -> (u32, u32) {
+        let (w, h) = self.board.pattern_size();
+        (w as u32, h as u32)
     }
 }

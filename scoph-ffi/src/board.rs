@@ -5,20 +5,14 @@ use crate::{ScophError, ScophIntrp};
 /// Provides the size in cells of a layer on the game's board. Will return a
 /// [`ScophError::MissingLayerOnSrc`] if the layer doesn't exist on the board.
 #[unsafe(no_mangle)]
-pub extern "C" fn scoph_board_layer_size(
+pub extern "C" fn scoph_board_size(
     intrp: *const ScophIntrp,
-    layer_name: *const c_char,
     width: *mut c_uint,
     height: *mut c_uint,
 ) -> ScophError {
     let intrp = unsafe { &(*intrp).0 };
-    let layer_name = unsafe { CStr::from_ptr(layer_name) };
 
-    let Some((w, h)) =
-        intrp.board_layer_size(layer_name.to_str().expect("should be a valid utf8 string"))
-    else {
-        return ScophError::MissingLayerOnSrc;
-    };
+    let (w, h) = intrp.board_size();
     unsafe {
         *width = w as c_uint;
         *height = h as c_uint;

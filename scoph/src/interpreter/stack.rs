@@ -1,4 +1,5 @@
 use derive_more::Debug;
+use rand::seq::IteratorRandom;
 use std::{collections::HashSet, rc::Rc};
 
 use petgraph::graph::NodeIndex;
@@ -324,38 +325,20 @@ impl ExecutionFrame {
                 Ok(Eval::Finished(true))
             }
 
-            N::Rewrite { lhs, rhs } => {
-                use rand::seq::IteratorRandom;
-                let mut layer_replacements = vec![];
-                for (layer_name, coords) in board.matches(lhs) {
-                    // for now does a random rewrite at a valid position
-                    // TODO: account for player choices
-                    if let Some(coords) = coords.choose(&mut rand::rng()) {
-                        layer_replacements.push((String::from(layer_name), coords));
-                    }
-                }
-
-                let result = Eval::Finished(!layer_replacements.is_empty());
-                for (layer_name, (x, y)) in layer_replacements {
-                    board.rewrite_at(x, y, &layer_name, rhs)?;
-                }
-                Ok(result)
-            }
+            N::Rewrite { lhs, rhs } => Ok(
+                if let Some((x, y)) = board.matches(lhs).choose(&mut rand::rng()) {
+                    board.rewrite_at(x, y, rhs)?;
+                    Eval::Finished(true)
+                } else {
+                    Eval::Finished(false)
+                },
+            ),
 
             N::Match { pattern } => Ok(Eval::Finished(board.matches(pattern).count() > 0)),
 
-            N::MatchTimes { times, pattern } => {
-                let mut matched_all = true;
-
-                for (_, coords) in board.matches(pattern) {
-                    if coords.count() != *times as usize {
-                        matched_all = false;
-                        break;
-                    }
-                }
-
-                Ok(Eval::Finished(matched_all))
-            }
+            N::MatchTimes { times, pattern } => Ok(Eval::Finished(
+                board.matches(pattern).count() >= *times as usize,
+            )),
 
             // x-link is a transform but it's special, so we have special logic for it
             N::XLink { target } => {

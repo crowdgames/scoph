@@ -18,23 +18,20 @@ fn test_pattern_matches_single_char_and_layer() {
         }
     }
 
-    for (layer_name, match_coords) in board_matches {
-        assert_eq!(layer_name, "main");
-        assert_eq!(match_coords.collect::<Vec<Coordinate>>(), expected_coords);
-    }
+    assert_eq!(board_matches, expected_coords);
 }
 
 #[test]
 fn test_pattern_rewrite() -> Result<()> {
     let mut dest = pattern::TRRBTPattern::from([("main", toodee_pattern(6, 6, ["."; 36]))]);
     let rx = pattern::TRRBTPattern::from([("main", toodee_pattern(1, 1, ["X"]))]);
-    dest.rewrite_at(0, 0, "main", &rx)?;
+    dest.rewrite_at(0, 0, &rx)?;
 
     let ro = pattern::TRRBTPattern::from([("main", toodee_pattern(2, 2, ["O"; 4]))]);
-    dest.rewrite_at(1, 1, "main", &ro)?;
+    dest.rewrite_at(1, 1, &ro)?;
 
     let rb = pattern::TRRBTPattern::from([("main", toodee_pattern(3, 3, ["B"; 9]))]);
-    dest.rewrite_at(3, 3, "main", &rb)?;
+    dest.rewrite_at(3, 3, &rb)?;
 
     assert_eq!(
         dest,

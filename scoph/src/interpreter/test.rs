@@ -301,10 +301,7 @@ fn test_loop_that_should_end() -> Result<()> {
             expected_x
         ));
 
-        for (layer_name, coords) in board.matches(&single_x) {
-            assert_eq!(layer_name, "main");
-            assert_eq!(coords.count(), expected_x);
-        }
+        assert_eq!(board.matches(&single_x).count(), expected_x);
 
         if push_frame {
             expected_x += 1;
@@ -454,14 +451,14 @@ fn test_all_quits_on_failure() -> Result<()> {
             let expected_underscores = j + 1;
             let bs = iter.next().unwrap();
             assert_eq!(
-                bs.matches(&underscore).next().unwrap().1.count(),
+                bs.matches(&underscore).count(),
                 expected_underscores as usize,
                 "Didn't get the expected rewrite: {:?}",
                 bs
             );
             let bs = iter.next().unwrap();
             assert_eq!(
-                bs.matches(&underscore).next().unwrap().1.count(),
+                bs.matches(&underscore).count(),
                 expected_underscores as usize,
                 "Didn't get the expected rewrite: {:?}",
                 bs

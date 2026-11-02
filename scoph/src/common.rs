@@ -1,12 +1,11 @@
-use std::{collections::BTreeMap, ffi::CString, str::FromStr};
+use std::{ffi::CString, str::FromStr};
 
 use regex::Replacer;
 use serde::{Deserialize, Serialize};
 use serde_with::{NoneAsEmptyString, serde_as};
-use toodee::TooDee;
 
 mod pattern;
-pub use pattern::{ TRRBTPattern, toodee_pattern };
+pub use pattern::{TRRBTPattern, toodee_pattern};
 #[cfg(test)]
 mod test;
 
@@ -26,7 +25,6 @@ impl From<&str> for PlayerId {
         Self(CString::from_str(value).unwrap())
     }
 }
-
 
 /// Takes a source string and swaps all occurrences of [what] with [with] and vice-versa.
 pub fn swap_chars(source: &str, what: &str, with: &str) -> String {

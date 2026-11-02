@@ -8,13 +8,12 @@ use serde::{
     de::{DeserializeSeed, Deserializer, Visitor},
 };
 
-use toodee::{CopyOps, TooDee, TooDeeOps, TooDeeOpsMut};
+use toodee::{Coordinate, CopyOps, TooDee, TooDeeOps, TooDeeOpsMut};
 
 use crate::common::swap_chars;
 use crate::interpreter::IError;
 
 use std::ffi::CString;
-
 
 type LayersAndPatterns = BTreeMap<String, TooDee<CString>>;
 
@@ -68,88 +67,64 @@ impl TRRBTPattern {
     }
 
     /// Gets the size of patterns with their associated layers
-    pub fn pattern_sizes(&self) -> impl Iterator<Item = (&str, (usize, usize))> {
+    pub fn pattern_size(&self) -> (usize, usize) {
         self.0
             .iter()
-            .map(|(layer_name, data)| (layer_name.as_str(), data.size()))
+            .next()
+            .map(|(_, data)| data.size())
+            .unwrap_or((0, 0))
     }
 
-    /// Returns an iterator of coordinates where the provided pattern was matched top-left
-    pub fn matches(
-        &self,
-        other: &Self,
-    ) -> impl Iterator<Item = (&str, impl Iterator<Item = (usize, usize)>)> {
-        self.0.iter().filter_map(|(layer_name, data)| {
+    /// Returns an iterator of coordinates where the provided pattern was matched. All matches are
+    /// anchored to the top-left of the pattern.
+    pub fn matches(&self, other: &Self) -> impl Iterator<Item = Coordinate> {
+        let (self_width, self_height) = self.pattern_size();
+        let (other_width, other_height) = other.pattern_size();
+        assert!(
+            other_width <= self_width,
+            "comparand pattern should fit within the dimensions of the comparer. other.width: {other_width} > self.width: {self_width}"
+        );
+        assert!(
+            other_height <= self_height,
+            "comparand pattern should fit within the dimensions of the comparer. other.height: {other_height} > self.height: {self_height}"
+        );
+
+        let mut coords = vec![];
+        for y in 0..=(self_height - other_height) {
+            for x in 0..=(self_width - other_width) {
+                if other.0.iter().all(|(layer_name, other_data)| {
+                    self.0.get(layer_name).is_some_and(|self_data| {
+                        self_data
+                            .view((x, y), (x + other_width, y + other_height))
+                            .cells()
+                            .eq(other_data.cells())
+                    })
+                }) {
+                    coords.push((x, y));
+                }
+            }
+        }
+
+        coords.into_iter()
+    }
+
+    /// Writes the pattern to to board at the given position. Returns an error if the
+    /// patterns do not have the same layers.
+    pub fn rewrite_at(&mut self, x: usize, y: usize, other: &Self) -> Result<(), IError> {
+        let (sw, sh) = self.pattern_size();
+        let (ow, oh) = other.pattern_size();
+        assert!(sw >= ow);
+        assert!(sh >= oh);
+
+        for (layer_name, layer_data) in self.0.iter_mut() {
             let other_data = other
                 .0
                 .get(layer_name)
-                .expect("Patterns must have the same layers to be matched");
-
-            let (other_width, other_height) = other_data.size();
-
-            let mut coords = Vec::new();
-            let (mut x, mut y) = (0, 0);
-            loop {
-                if x + other_width > data.num_cols() {
-                    x = 0;
-                    y += 1;
-                    if y + other_height > data.num_rows() {
-                        break;
-                    }
-                }
-
-                assert!(
-                    x + other_width >= x,
-                    "End x is before start x end.x = {} < start.x = {}",
-                    x + other_width,
-                    x
-                );
-                assert!(
-                    y + other_height >= y,
-                    "End y is before start y end.y = {} < start.y = {}",
-                    y + other_width,
-                    y
-                );
-                let view = data.view((x, y), (x + other_width, y + other_height));
-                if view
-                    .cells()
-                    .zip(other_data.cells())
-                    .all(|(board_view, pattern)| board_view == pattern)
-                {
-                    coords.push((x, y));
-                }
-
-                x += 1;
-            }
-
-            if coords.is_empty() {
-                None
-            } else {
-                Some((layer_name.as_str(), coords.into_iter()))
-            }
-        })
-    }
-
-    /// Writes the pattern to to board at the given layer and position. Returns an error if the
-    /// layer is not found in the destination or source patterns.
-    pub fn rewrite_at(
-        &mut self,
-        x: usize,
-        y: usize,
-        layer_name: &str,
-        src_pattern: &Self,
-    ) -> Result<(), IError> {
-        let src_data = src_pattern
-            .0
-            .get(layer_name)
-            .ok_or(IError::MissingLayerOnSrc(layer_name.to_string()))?;
-
-        let (src_width, src_height) = src_data.size();
-        self.0
-            .get_mut(layer_name)
-            .ok_or(IError::MissingLayerOnDest(layer_name.to_string()))?
-            .view_mut((x, y), (x + src_width, y + src_height))
-            .clone_from_toodee(src_data);
+                .ok_or_else(|| IError::MissingLayerOnSrc(layer_name.to_owned()))?;
+            layer_data
+                .view_mut((x, y), (x + ow, y + oh))
+                .clone_from_toodee(other_data);
+        }
 
         Ok(())
     }
@@ -293,6 +268,10 @@ impl<'a, const N: usize> From<[(&'a str, TooDee<String>); N]> for TRRBTPattern {
                 ),
             );
         }
+        assert!(
+            core.iter().map(|(_, d)| d.size()).all_equal(),
+            "pattern layers must all be the same width and height"
+        );
         Self(core)
     }
 }
