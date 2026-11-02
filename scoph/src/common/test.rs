@@ -6,8 +6,8 @@ use pretty_assertions::assert_eq;
 
 #[test]
 fn test_pattern_matches_single_char_and_layer() {
-    let board = TRRBTPattern::from([("main", toodee_pattern(6, 6, ["."; 36]))]);
-    let matchee = TRRBTPattern::from([("main", toodee_pattern(1, 1, ["."]))]);
+    let board = pattern::TRRBTPattern::from([("main", toodee_pattern(6, 6, ["."; 36]))]);
+    let matchee = pattern::TRRBTPattern::from([("main", toodee_pattern(1, 1, ["."]))]);
 
     let board_matches: Vec<_> = board.matches(&matchee).collect();
 
@@ -26,14 +26,14 @@ fn test_pattern_matches_single_char_and_layer() {
 
 #[test]
 fn test_pattern_rewrite() -> Result<()> {
-    let mut dest = TRRBTPattern::from([("main", toodee_pattern(6, 6, ["."; 36]))]);
-    let rx = TRRBTPattern::from([("main", toodee_pattern(1, 1, ["X"]))]);
+    let mut dest = pattern::TRRBTPattern::from([("main", toodee_pattern(6, 6, ["."; 36]))]);
+    let rx = pattern::TRRBTPattern::from([("main", toodee_pattern(1, 1, ["X"]))]);
     dest.rewrite_at(0, 0, "main", &rx)?;
 
-    let ro = TRRBTPattern::from([("main", toodee_pattern(2, 2, ["O"; 4]))]);
+    let ro = pattern::TRRBTPattern::from([("main", toodee_pattern(2, 2, ["O"; 4]))]);
     dest.rewrite_at(1, 1, "main", &ro)?;
 
-    let rb = TRRBTPattern::from([("main", toodee_pattern(3, 3, ["B"; 9]))]);
+    let rb = pattern::TRRBTPattern::from([("main", toodee_pattern(3, 3, ["B"; 9]))]);
     dest.rewrite_at(3, 3, "main", &rb)?;
 
     assert_eq!(
@@ -58,7 +58,7 @@ fn test_pattern_rewrite() -> Result<()> {
 // transform tests
 #[test]
 fn test_rotated_90_tic_tac_toe() {
-    let og = TRRBTPattern::from([("main", toodee_pattern(1, 3, ["X", "X", "X"]))]);
+    let og = pattern::TRRBTPattern::from([("main", toodee_pattern(1, 3, ["X", "X", "X"]))]);
 
     assert_eq!(
         og.rotated_90(),
