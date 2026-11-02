@@ -1,4 +1,8 @@
-use std::path::Path;
+use std::{
+    ffi::{CStr, CString},
+    path::Path,
+    str::FromStr,
+};
 
 use crate::{
     common::{Info, NodeAction},
@@ -25,8 +29,8 @@ type TRRBTTree = DiGraph<BehaviorNode, BehaviorEdge>;
 /// program. They can be loaded from a TRRBT json file and be transformed.
 #[derive(Debug)]
 pub struct BehaviorTree {
-    name: String,
-    desc: String,
+    name: CString,
+    desc: CString,
     tree: TRRBTTree,
     root_index: NodeIndex,
 }
@@ -49,13 +53,13 @@ impl BehaviorTree {
     }
 
     /// Gets the name of the game
-    pub fn name(&self) -> &str {
-        self.name.as_str()
+    pub fn name(&self) -> &CStr {
+        self.name.as_c_str()
     }
 
     /// Gets the description of the game
-    pub fn description(&self) -> &str {
-        self.desc.as_str()
+    pub fn description(&self) -> &CStr {
+        self.desc.as_c_str()
     }
 
     /// Returns the petgraph index of the root node of the tree
@@ -137,8 +141,8 @@ impl From<TRRBTDocument> for BehaviorTree {
         node_to_behavior_tree_graph(value.tree, &mut root, &mut index_base, &mut tree, None);
 
         Self {
-            name: value.name,
-            desc: value.desc,
+            name: CString::from_str(&value.name).expect("Valid name"),
+            desc: CString::from_str(&value.desc).expect("Valid description"),
             root_index: root.unwrap(),
             tree,
         }
@@ -180,8 +184,8 @@ mod test {
         }"#;
 
         let behavior_tree = BehaviorTree::load_from_json_text(SIMPLE_GAME)?;
-        assert_eq!(behavior_tree.name(), "A simple game");
-        assert_eq!(behavior_tree.description(), "From a simpler time");
+        assert_eq!(behavior_tree.name(), c"A simple game");
+        assert_eq!(behavior_tree.description(), c"From a simpler time");
 
         let map_to_node_action = |n: NodeIndex| behavior_tree.get_node_action(n);
 
@@ -340,10 +344,10 @@ mod test {
         }"#;
 
         let behavior_tree = BehaviorTree::load_from_json_text(MULTIPLE_CHILDREN)?;
-        assert_eq!(behavior_tree.name(), "multiple children");
+        assert_eq!(behavior_tree.name(), c"multiple children");
         assert_eq!(
             behavior_tree.description(),
-            "multiple children under an order node"
+            c"multiple children under an order node"
         );
         let root = behavior_tree.root();
         assert_eq!(behavior_tree.get_node_action(root), &NodeAction::Order);

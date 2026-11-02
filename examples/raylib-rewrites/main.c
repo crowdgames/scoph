@@ -19,8 +19,7 @@ void fail_and_print(ScophError code, ScophIntrp *intrp,
 
 void draw_board(ScophIntrp *intrp, ScophIntrpResult last_res) {
   unsigned int width, height;
-  ScophError code =
-      scoph_board_layer_size(intrp, DEFAULT_LAYER, &width, &height);
+  ScophError code = scoph_board_size(intrp, &width, &height);
   switch (code) {
   case Ok:
     break;
@@ -47,14 +46,6 @@ void draw_board(ScophIntrp *intrp, ScophIntrpResult last_res) {
       int linex = board_x + x * (cell_size + 1);
       DrawLine(linex, board_y, linex, board_y + board_height, BLACK);
 
-      // old way
-      // char cellbuf[8];
-      // unsigned int bytes_read;
-      // ScophError code = scoph_view_board_cell(intrp, DEFAULT_LAYER, x, y,
-      //                                         cellbuf, &bytes_read);
-      // cellbuf[bytes_read] = '\0';
-
-      // new way
       const char *cellbuf;
       ScophError code =
           scoph_get_board_cell(intrp, DEFAULT_LAYER, &cellbuf, x, y);
@@ -96,6 +87,13 @@ int main() {
   // raylib setup code
   InitWindow(sw, sh, "Scoph");
 
+  const char *name;
+  const char *desc;
+  code = scoph_intrp_startup(intrp, &name, &desc);
+  if (code) {
+    fail_and_print(code, intrp, "Error occurred when calling startup");
+  }
+
   SetTargetFPS(60);
 
   const int ticks_before_step = 5;
@@ -117,6 +115,9 @@ int main() {
     BeginDrawing();
     ClearBackground(RAYWHITE);
     draw_board(intrp, res);
+
+    DrawText(TextFormat("Name: %s, Desc: %s", name, desc), 25, 24, 24,
+             DARKPURPLE);
     EndDrawing();
   }
 

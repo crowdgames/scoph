@@ -1,3 +1,5 @@
+use std::ffi::CStr;
+
 use petgraph::graph::NodeIndex;
 
 use crate::{common::TRRBTPattern, interpreter::BehaviorTree};
@@ -45,11 +47,11 @@ pub type StackFrameInfo = (NodeIndex, u32);
 /// Allows users to view into an interpreter's current state as it runs
 pub trait Visitor {
     /// Provides the name and description of the tree to be displayed however deemed fit.
-    fn startup(&mut self, tree_name: &str, tree_description: &str) {
+    fn startup(&mut self, tree_name: &CStr, tree_description: &CStr) {
         println!("= Name: ===============");
-        println!("{tree_name}");
+        println!("{tree_name:?}");
         println!("= Description: =========");
-        println!("{tree_description}");
+        println!("{tree_description:?}");
     }
 
     /// Provides a look into the current state of the tile map.
@@ -91,7 +93,7 @@ impl Visitor for Printer {}
 // Dummy visitor that doesn't do anything
 pub struct Dummy;
 impl Visitor for Dummy {
-    fn startup(&mut self, _tree_name: &str, _tree_descriptionn: &str) {}
+    fn startup(&mut self, _tree_name: &CStr, _tree_description: &CStr) {}
 
     fn view_board(&mut self, _board: &TRRBTPattern) {}
 

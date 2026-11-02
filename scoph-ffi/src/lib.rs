@@ -1,7 +1,7 @@
 use std::ffi::{CStr, OsStr, c_char};
 
 /// cbindgen:ignore
-use scoph::interpreter::{BehaviorTree, Interpreter, Status, Outcome};
+use scoph::interpreter::{BehaviorTree, Interpreter, Outcome, Status, Visitor};
 
 pub struct ScophIntrp(Interpreter);
 
@@ -35,7 +35,10 @@ pub extern "C" fn scoph_intrp_load(intrp: *mut *mut ScophIntrp, path: *const c_c
 /// interpreter from memory with [`scoph_intrp_free`]. If you want to load an interpreter from a
 /// json file on the system, see [`scoph_intrp_load`].
 #[unsafe(no_mangle)]
-pub extern "C" fn scoph_intrp_load_json(intrp: *mut *mut ScophIntrp, json_text: *const c_char) -> ScophError {
+pub extern "C" fn scoph_intrp_load_json(
+    intrp: *mut *mut ScophIntrp,
+    json_text: *const c_char,
+) -> ScophError {
     let json_text = match unsafe { CStr::from_ptr(json_text) }.to_str() {
         Ok(s) => s,
         Err(_) => return ScophError::BadJson,
@@ -73,6 +76,34 @@ pub enum ScophIntrpResult {
     /// The interpreter is finished running the game. Either by completing running the tree or
     /// finding a winner.
     Finished,
+}
+
+/// Calls the startup method on the interpreter. Meant to initialize any necessary engine logic for
+/// the user. Provides the name and description of the game
+#[unsafe(no_mangle)]
+pub extern "C" fn scoph_intrp_startup(
+    intrp: *mut ScophIntrp,
+    name: *mut *const c_char,
+    desc: *mut *const c_char,
+) -> ScophError {
+    let intrp = unsafe { &mut (*intrp).0 };
+    struct UnsafeStartup {
+        name: *mut *const c_char,
+        desc: *mut *const c_char,
+    }
+    impl Visitor for UnsafeStartup {
+        fn startup(&mut self, tree_name: &CStr, tree_description: &CStr) {
+            unsafe {
+                (*self.name) = tree_name.as_ptr();
+                (*self.desc) = tree_description.as_ptr();
+            }
+        }
+    }
+    if let Err(e) = intrp.startup(&mut UnsafeStartup { name, desc }) {
+        e.into()
+    } else {
+        ScophError::Ok
+    }
 }
 
 /// Makes an interpreter take a step in its execution. [res] is a [ScophIntrpResult] that signifies

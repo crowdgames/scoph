@@ -1,4 +1,8 @@
-use std::assert_matches;
+use std::{
+    assert_matches,
+    ffi::{CStr, CString},
+    str::FromStr,
+};
 
 use super::*;
 use crate::{common::toodee_pattern, interpreter::visitor::Dummy};
@@ -13,9 +17,12 @@ struct Comparer {
 }
 
 impl Visitor for Comparer {
-    fn startup(&mut self, tree_name: &str, tree_description: &str) {
-        assert_eq!(self.expected_name, tree_name);
-        assert_eq!(self.expected_description, tree_description);
+    fn startup(&mut self, tree_name: &CStr, tree_description: &CStr) {
+        assert_eq!(CString::from_str(&self.expected_name).unwrap(), tree_name);
+        assert_eq!(
+            CString::from_str(&self.expected_description).unwrap(),
+            tree_description
+        );
     }
 
     fn view_board(&mut self, board: &TRRBTPattern) {

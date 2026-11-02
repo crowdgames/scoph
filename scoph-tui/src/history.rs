@@ -1,3 +1,5 @@
+use std::ffi::CStr;
+
 use scoph::common::TRRBTPattern;
 use scoph::interpreter::BehaviorTree;
 use scoph::interpreter::StackFrameInfo;
@@ -15,7 +17,7 @@ impl ReplHistory {
 }
 
 impl Visitor for ReplHistory {
-    fn startup(&mut self, tree_name: &str, tree_description: &str) {
+    fn startup(&mut self, tree_name: &CStr, tree_description: &CStr) {
     }
 
     fn view_board(&mut self, board: &TRRBTPattern) {
