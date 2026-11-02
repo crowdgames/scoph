@@ -1745,6 +1745,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "derive_more",
+ "itertools 0.15.0",
  "petgraph",
  "pretty_assertions",
  "rand 0.10.3",

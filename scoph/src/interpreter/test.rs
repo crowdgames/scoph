@@ -117,45 +117,29 @@ fn test_loop_until_all_with_set_board() -> Result<()> {
 #[test]
 fn test_win_via_match() -> Result<()> {
     const GAME: &str = r#"
-    {
-        "name": "Single Match",
-        "desc": "Game ends with single match",
-        "tree": {
-            "type": "order",
-            "children": [
-                {
-                    "type": "set-board",
-                    "pattern": {
-                        "main": [
-                            [".", ".", "."],
-                            [".", "X", "."],
-                            [".", ".", "."]
-                        ],
-                        "other": [
-                            ["|", "|", "|", "U"]
-                        ]
-                    }
-                },
-                {
-                    "type": "win",
-                    "pid": "Jeremy",
-                    "children": [
-                        {
-                            "type": "match",
-                            "pattern": {
-                                "main": [["X"]],
-                                "other": [["U"]]
-                            }
-                        }
-                    ]
-                }
-            ]
-        }
-    }
+{"name":"Single Match","desc":"Game ends with single match","tree":{"type":"order","children":[{"type":"set-board","pattern":{"main":[[".",".","."],[".","X","."],[".",".","."]],"other":[["|","|","|"],["|","U","|"],["|","|","|"]]},"comment":"","nid":""},{"type":"win","pid":"Jeremy","children":[{"type":"match","pattern":{"main":[["X"]],"other":[["U"]]}}]}]}}
     "#;
 
     let mut cmp = Comparer {
         expected_name: "Single Match".to_string(),
+        expected_description: "Game ends with single match".to_string(),
+        board_states: vec![],
+    };
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_text(GAME)?);
+    intrp.run_full(&mut cmp)?;
+    assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
+
+    Ok(())
+}
+
+#[test]
+fn test_win_via_failed_match() -> Result<()> {
+    const GAME: &str = r#"
+{"name":"Single Match Fail","desc":"Game ends with single match","tree":{"type":"order","children":[{"type":"set-board","pattern":{"main":[[".",".","."],[".","X","."],[".",".","."]],"other":[["|","U","|"],["|","|","|"],["|","|","|"]]},"comment":"","nid":""},{"type":"win","pid":"Jeremy","children":[{"type":"none","comment":"","nid":"","children":[{"type":"match","pattern":{"main":[["X"]],"other":[["U"]]}}]}]}]}}
+    "#;
+
+    let mut cmp = Comparer {
+        expected_name: "Single Match Fail".to_string(),
         expected_description: "Game ends with single match".to_string(),
         board_states: vec![],
     };

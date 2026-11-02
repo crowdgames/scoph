@@ -7,6 +7,7 @@ description = "An implementation of the TRRBT language for use across multiple p
 [dependencies]
 anyhow = "1.0.104"
 derive_more = { version = "2.1.1", features = ["debug"] }
+itertools = "0.15.0"
 petgraph = { version = "0.8.3", features = ["serde-1"] }
 pretty_assertions = "1.4.1"
 rand = "0.10.3"

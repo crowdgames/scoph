@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, ffi::CString, marker::PhantomData, str::FromStr};
 
+use itertools::Itertools;
 use regex::Replacer;
 use serde::{
     Deserialize, Serialize,
@@ -383,7 +384,15 @@ impl<'de> Deserialize<'de> for TRRBTPattern {
                     layers_and_patterns.insert(layer_name, map.next_value_seed(PatternText)?);
                 }
 
-                Ok(TRRBTPattern(layers_and_patterns))
+                if layers_and_patterns
+                    .iter()
+                    .map(|(_, data)| data.size())
+                    .all_equal()
+                {
+                    Ok(TRRBTPattern(layers_and_patterns))
+                } else {
+                    Err(serde::de::Error::custom("Patterns must be the same size"))
+                }
             }
         }
 

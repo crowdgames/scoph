@@ -142,7 +142,10 @@ impl Interpreter {
                 }
 
                 // collect transform frames
-                let untransformed = self.execution_stack.last().is_some_and(|frame| !frame.action().is_transform());
+                let untransformed = self
+                    .execution_stack
+                    .last()
+                    .is_some_and(|frame| !frame.action().is_transform());
                 let mut passing_frames = vec![];
                 while let Some(passer) = self
                     .execution_stack
@@ -168,7 +171,9 @@ impl Interpreter {
             Eval::TransformFinished => {
                 assert!(self.passed_frames.is_empty());
                 self.execution_stack.pop();
-                if let Some(frame) = self.execution_stack.last_mut() && !frame.action().is_transform() {
+                if let Some(frame) = self.execution_stack.last_mut()
+                    && !frame.action().is_transform()
+                {
                     frame.next_branch();
                 }
             }
@@ -194,20 +199,9 @@ impl Interpreter {
     pub fn run<V: Visitor, C: Capabilities>(&mut self, visitor: &mut V) -> Result<(), IError> {
         self.startup(visitor)?;
 
-        loop {
-            match self.step() {
-                Ok(status) => {
-                    if status == Status::Finished {
-                        break;
-                    }
-
-                    if C::can_view_board() {
-                        visitor.view_board(&self.board);
-                    }
-                }
-                Err(intrp_err) => {
-                    return Err(intrp_err);
-                }
+        while !matches!(self.step()?, Status::Finished) {
+            if C::can_view_board() {
+                visitor.view_board(&self.board);
             }
         }
         Ok(())
