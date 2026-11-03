@@ -9,6 +9,7 @@ use std::rc::Rc;
 pub use err::IError;
 use stack::ExecutionFrame;
 pub use stack::Outcome;
+use toodee::Coordinate;
 pub use visitor::StackFrameInfo;
 pub use visitor::Visitor;
 
@@ -17,6 +18,8 @@ pub use tree::BehaviorTree;
 
 use transforms::TransformStack;
 
+use crate::common::PlayerId;
+use crate::interpreter::stack::PlayerChoices;
 use crate::{
     common::TRRBTPattern,
     interpreter::{
@@ -33,7 +36,7 @@ pub struct Interpreter {
     tree: Rc<BehaviorTree>,
     board: TRRBTPattern,
     started: bool,
-    waiting_for_choice: bool,
+    player_choices: Option<(PlayerId, PlayerChoices)>,
     execution_stack: Vec<ExecutionFrame>,
     passed_frames: Vec<ExecutionFrame>,
     transform_stack: TransformStack,
@@ -47,6 +50,7 @@ pub enum Status {
     Unstarted,
     InProgress,
     Finished,
+    WaitingForChoice,
 }
 
 impl Interpreter {
@@ -59,7 +63,7 @@ impl Interpreter {
             execution_stack: Default::default(),
             passed_frames: Default::default(),
             started: Default::default(),
-            waiting_for_choice: Default::default(),
+            player_choices: Default::default(),
             transform_stack: Default::default(),
             outcome: None,
         };
@@ -96,6 +100,27 @@ impl Interpreter {
         visitor.view_board(&self.board);
     }
 
+    /// Will attempt to call [Visitor::present_choices] on the provided visitor. Returns true if the
+    /// choices exist and were presented, returns false if the interpreter doesn't have any choices
+    /// to make.
+    ///
+    /// It's reccomended to use this method as a way to get your engine to collect choices so the
+    /// choice presentation is up to the game developer.
+    pub fn check_choices<V: Visitor>(&self, visitor: &mut V) -> bool {
+        if let Some((pid, matches)) = &self.player_choices {
+            visitor.present_choices(pid, matches);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Instructs the interpreter of the player's choice for a rewrite. Will fail if the
+    /// interpreter's latest status wasn't [Status::WaitingForChoice]
+    pub fn choose(&mut self, coord: Coordinate) -> Result<(), IError> {
+        todo!()
+    }
+
     fn restack_passed_frames(&mut self) {
         assert!(
             !self.passed_frames.is_empty(),
@@ -112,10 +137,10 @@ impl Interpreter {
     pub fn step(&mut self) -> Result<Status, IError> {
         if !self.started {
             return Err(IError::HasntStarted);
-        }
-
-        if self.outcome.is_some() {
+        } else if self.outcome.is_some() {
             return Ok(Status::Finished);
+        } else if self.player_choices.is_some() {
+            return Ok(Status::WaitingForChoice);
         }
 
         // peek at the top of the call stack, perform node actions to the tree/board. Provide a
@@ -189,6 +214,11 @@ impl Interpreter {
                 self.outcome = Some(outcome);
                 return Ok(Status::Finished);
             }
+
+            Eval::PlayerChoices { pid, matches } => {
+                self.player_choices = Some((pid, matches));
+                return Ok(Status::WaitingForChoice);
+            }
         }
 
         Ok(Status::InProgress)
@@ -199,7 +229,19 @@ impl Interpreter {
     pub fn run<V: Visitor, C: Capabilities>(&mut self, visitor: &mut V) -> Result<(), IError> {
         self.startup(visitor)?;
 
-        while !matches!(self.step()?, Status::Finished) {
+        loop {
+            let status = self.step()?;
+            match status {
+                Status::Finished => break,
+                Status::WaitingForChoice => {
+                    let Some((pid, matches)) = self.player_choices.as_ref() else {
+                        unreachable!();
+                    };
+                    visitor.present_choices(pid, matches);
+                }
+                _ => {},
+            }
+
             if C::can_view_board() {
                 visitor.view_board(&self.board);
             }

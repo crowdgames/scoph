@@ -28,6 +28,8 @@ pub enum ScophError {
     HasntStarted,
 
     BadLink,
+
+    BadPlayerChild,
 }
 
 impl From<IError> for ScophError {
@@ -40,6 +42,7 @@ impl From<IError> for ScophError {
             IError::AlreadyStarted => Self::AlreadyStarted,
             IError::HasntStarted => Self::HasntStarted,
             IError::BadLink  {..}=> Self::BadLink,
+            IError::BadPlayerChild(_, _) => Self::BadPlayerChild,
         }
     }
 }
@@ -68,6 +71,7 @@ pub extern "C" fn scoph_strerror(error: ScophError) -> *const c_char {
         ScophError::BadLink => {
             c"Linked to a target that doesn't exist in the tree"
         },
+        ScophError::BadPlayerChild => c"A player node has a child that is neither transform nor rewrite",
     }
     .as_ptr()
 }

@@ -1,6 +1,10 @@
 use derive_more::Debug;
 use rand::seq::IteratorRandom;
-use std::{collections::HashSet, rc::Rc};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    rc::Rc,
+};
+use toodee::Coordinate;
 
 use petgraph::graph::NodeIndex;
 
@@ -126,6 +130,8 @@ pub enum Outcome {
     Tie,
 }
 
+pub type PlayerChoices = HashMap<(TRRBTPattern, TRRBTPattern), Vec<Coordinate>>;
+
 pub enum Eval {
     // behavior tree transforms
     /// indicates a node has finished and provided a result
@@ -133,8 +139,13 @@ pub enum Eval {
     /// pushing a node onto the ES from the untransformed tree
     Push(NodeIndex),
 
+    PlayerChoices {
+        pid: PlayerId,
+        matches: PlayerChoices,
+    },
+
     // special evals for transforms
-    /// Push a
+    /// Push a transformed node action as an executable frame on the stack
     TransformPush(ExecutionFrame),
     TransformFinished,
     End(Outcome),
@@ -365,6 +376,14 @@ impl ExecutionFrame {
                 })
             }
 
+            N::Player { pid } => {
+                let plwr = self.collect_player_rewrites(board, transform_stack)?;
+                Ok(Eval::PlayerChoices {
+                    pid: pid.clone(),
+                    matches: plwr,
+                })
+            }
+
             action if action.is_transform() => {
                 let children: Vec<_> = self.source.children().collect();
 
@@ -410,6 +429,57 @@ impl ExecutionFrame {
 
             _ => todo!(),
         }
+    }
+
+    fn collect_player_rewrites(
+        &self,
+        board: &mut TRRBTPattern,
+        transform_stack: &mut TransformStack,
+    ) -> Result<PlayerChoices, IError> {
+        use NodeAction as N;
+        let mut matches = PlayerChoices::new();
+        for child in self.source.children() {
+            let tree = self.source.tree();
+            match tree.get_node_action(child) {
+                N::Rewrite { lhs, rhs } => {
+                    matches.insert((lhs.clone(), rhs.clone()), board.matches(lhs).collect());
+                }
+                action if action.is_transform() => {
+                    let mut virtual_stack = vec![];
+                    let virtual_frame = Self::from_source(Source::Tree {
+                        tree,
+                        node_index: child,
+                    });
+                    virtual_stack.push(virtual_frame);
+                    while let Some(vf) = virtual_stack.last_mut() {
+                        match vf.evaluate(board, transform_stack)? {
+                            Eval::TransformPush(f) => match vf.action() {
+                                N::Rewrite { lhs, rhs } => {
+                                    matches.insert(
+                                        (lhs.clone(), rhs.clone()),
+                                        board.matches(lhs).collect(),
+                                    );
+                                }
+                                action if action.is_transform() => {
+                                    virtual_stack.push(f);
+                                }
+                                a => return Err(IError::BadPlayerChild(child, a.clone())),
+                            },
+
+                            Eval::TransformFinished => {
+                                virtual_stack.pop();
+                            }
+                            // might want this to be a different error
+                            _ => {
+                                return Err(IError::BadPlayerChild(child, vf.action().clone()));
+                            }
+                        }
+                    }
+                }
+                a => return Err(IError::BadPlayerChild(child, a.clone())),
+            }
+        }
+        Ok(matches)
     }
 
     pub fn child_finished(&mut self, succeeded: bool, untransformed: bool) -> Option<bool> {
