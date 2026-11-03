@@ -839,3 +839,10 @@ fn test_x_swap_only_with_x_link() -> Result<()> {
     assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
     Ok(())
 }
+
+// player choice tests
+struct Chooser<'a> {
+    cmp: Comparer,
+    choice_rewrite: Option<(&'a TRRBTPattern, &'a TRRBTPattern)>,
+    choice_coord: Option<Coordinate>,
+}

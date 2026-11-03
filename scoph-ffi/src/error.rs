@@ -22,14 +22,18 @@ pub enum ScophError {
     MissingNodeId,
     /// Tried getting checking the outcome of an interpreter while it's unfinished.
     NoOutcome,
-
+    /// Tried calling startup again after the interpreter was already initialized
     AlreadyStarted,
-
+    /// Tried calling step before the interpreter was initialized with startup
     HasntStarted,
-
+    /// Tree contains an x-link node to a target id that doesn't exist in the tree
     BadLink,
-
+    /// A player node in the tree has a child that is neither transform nor rewrite
     BadPlayerChild,
+    /// Tried to make a choice when the interpreter doesn't have any
+    NoChoices,
+    /// Tried to make a choice at a coord where a match doesn't exist
+    BadChoice,
 }
 
 impl From<IError> for ScophError {
@@ -41,8 +45,10 @@ impl From<IError> for ScophError {
             IError::MissingNodeId(_) => Self::MissingNodeId,
             IError::AlreadyStarted => Self::AlreadyStarted,
             IError::HasntStarted => Self::HasntStarted,
-            IError::BadLink  {..}=> Self::BadLink,
+            IError::BadLink { .. } => Self::BadLink,
             IError::BadPlayerChild(_, _) => Self::BadPlayerChild,
+            IError::NoChoices => Self::NoChoices,
+            IError::BadChoice => Self::BadChoice,
         }
     }
 }
@@ -68,10 +74,12 @@ pub extern "C" fn scoph_strerror(error: ScophError) -> *const c_char {
         ScophError::HasntStarted => {
             c"Tried calling step on an interpreter that hansn't called startup yet"
         }
-        ScophError::BadLink => {
-            c"Linked to a target that doesn't exist in the tree"
-        },
-        ScophError::BadPlayerChild => c"A player node has a child that is neither transform nor rewrite",
+        ScophError::BadLink => c"Linked to a target that doesn't exist in the tree",
+        ScophError::BadPlayerChild => {
+            c"A player node has a child that is neither transform nor rewrite"
+        }
+        ScophError::NoChoices => c"Tried to make a choice when the interpreter doesn't have any",
+        ScophError::BadChoice => c"Tried to make a choice at a coord where a match doesn't exist",
     }
     .as_ptr()
 }

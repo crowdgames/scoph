@@ -117,8 +117,25 @@ impl Interpreter {
 
     /// Instructs the interpreter of the player's choice for a rewrite. Will fail if the
     /// interpreter's latest status wasn't [Status::WaitingForChoice]
-    pub fn choose(&mut self, coord: Coordinate) -> Result<(), IError> {
-        todo!()
+    pub fn player_choose(
+        &mut self,
+        lhs: &TRRBTPattern,
+        rhs: &TRRBTPattern,
+        coord: Coordinate,
+    ) -> Result<(), IError> {
+        let (_, choices) = self.player_choices.take().ok_or(IError::NoChoices)?;
+
+        let rhs = choices
+            .into_iter()
+            .find_map(|((choice_lhs, choice_rhs), coords)| {
+                (&choice_lhs == lhs && &choice_rhs == rhs && coords.contains(&coord)).then_some(rhs)
+            })
+            .ok_or(IError::BadChoice)?;
+
+        let (x, y) = coord;
+        self.board.rewrite_at(x, y, &rhs)?;
+
+        Ok(())
     }
 
     fn restack_passed_frames(&mut self) {
@@ -224,11 +241,12 @@ impl Interpreter {
         Ok(Status::InProgress)
     }
 
-    /// Runs an entire scoph program without stopping. Will run the visitor methods on the
-    /// specified capabilities.
-    pub fn run<V: Visitor, C: Capabilities>(&mut self, visitor: &mut V) -> Result<(), IError> {
-        self.startup(visitor)?;
-
+    /// Runs a TRRBT program without calling startup. Will break if the interpreter is waiting for a
+    /// player choice.
+    ///
+    /// NOTE: will fail if startup is not called prior. It's reccomended to use [Interpreter::run]
+    /// to start your program.
+    pub fn resume<V: Visitor, C: Capabilities>(&mut self, visitor: &mut V) -> Result<(), IError> {
         loop {
             let status = self.step()?;
             match status {
@@ -238,8 +256,9 @@ impl Interpreter {
                         unreachable!();
                     };
                     visitor.present_choices(pid, matches);
+                    return Ok(());
                 }
-                _ => {},
+                _ => {}
             }
 
             if C::can_view_board() {
@@ -247,6 +266,15 @@ impl Interpreter {
             }
         }
         Ok(())
+    }
+
+    /// Runs an entire scoph program without stopping. Will run the visitor methods on the
+    /// specified capabilities.
+    ///
+    /// NOTE: this function will return after presenting player choices.
+    pub fn run<V: Visitor, C: Capabilities>(&mut self, visitor: &mut V) -> Result<(), IError> {
+        self.startup(visitor)?;
+        self.resume::<V, C>(visitor)
     }
 
     /// Run an interpreter the whole way through with all capabilities
