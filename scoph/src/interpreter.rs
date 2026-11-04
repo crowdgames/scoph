@@ -1,7 +1,6 @@
 mod err;
 mod stack;
 mod transforms;
-mod tree;
 mod visitor;
 
 use std::rc::Rc;
@@ -9,14 +8,18 @@ use std::rc::Rc;
 pub use err::IError;
 use stack::ExecutionFrame;
 pub use stack::Outcome;
+use toodee::Coordinate;
 pub use visitor::StackFrameInfo;
 pub use visitor::Visitor;
 
 use petgraph::graph::NodeIndex;
-pub use tree::BehaviorTree;
+use crate::common::BehaviorTree;
 
 use transforms::TransformStack;
 
+use crate::common::NodeAction;
+use crate::common::PlayerId;
+use crate::interpreter::stack::PlayerChoices;
 use crate::{
     common::TRRBTPattern,
     interpreter::{
@@ -33,7 +36,7 @@ pub struct Interpreter {
     tree: Rc<BehaviorTree>,
     board: TRRBTPattern,
     started: bool,
-    waiting_for_choice: bool,
+    player_choices: Option<(PlayerId, PlayerChoices)>,
     execution_stack: Vec<ExecutionFrame>,
     passed_frames: Vec<ExecutionFrame>,
     transform_stack: TransformStack,
@@ -47,6 +50,7 @@ pub enum Status {
     Unstarted,
     InProgress,
     Finished,
+    WaitingForChoice,
 }
 
 impl Interpreter {
@@ -59,7 +63,7 @@ impl Interpreter {
             execution_stack: Default::default(),
             passed_frames: Default::default(),
             started: Default::default(),
-            waiting_for_choice: Default::default(),
+            player_choices: Default::default(),
             transform_stack: Default::default(),
             outcome: None,
         };
@@ -96,6 +100,47 @@ impl Interpreter {
         visitor.view_board(&self.board);
     }
 
+    /// Will attempt to call [Visitor::present_choices] on the provided visitor. Returns true if the
+    /// choices exist and were presented, returns false if the interpreter doesn't have any choices
+    /// to make.
+    ///
+    /// It's reccomended to use this method as a way to get your engine to collect choices so the
+    /// choice presentation is up to the game developer.
+    pub fn check_choices<V: Visitor>(&self, visitor: &mut V) -> bool {
+        if let Some((pid, matches)) = &self.player_choices {
+            visitor.present_choices(pid, matches);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Instructs the interpreter of the player's choice for a rewrite. Will fail if the
+    /// interpreter's latest status wasn't [Status::WaitingForChoice]
+    pub fn player_choose(
+        &mut self,
+        lhs: &TRRBTPattern,
+        rhs: &TRRBTPattern,
+        coord: Coordinate,
+    ) -> Result<(), IError> {
+        let (_, choices) = self.player_choices.take().ok_or(IError::NoChoices)?;
+
+        let rhs = choices
+            .into_iter()
+            .find_map(|((choice_lhs, choice_rhs), coords)| {
+                (&choice_lhs == lhs && &choice_rhs == rhs && coords.contains(&coord)).then_some(rhs)
+            })
+            .ok_or(IError::BadChoice)?;
+
+        let (x, y) = coord;
+        self.board.rewrite_at(x, y, &rhs)?;
+
+        // player succeeded, pass the result to its parent in the stack
+        let _ = self.handle_eval(Eval::Finished(true))?;
+
+        Ok(())
+    }
+
     fn restack_passed_frames(&mut self) {
         assert!(
             !self.passed_frames.is_empty(),
@@ -112,10 +157,10 @@ impl Interpreter {
     pub fn step(&mut self) -> Result<Status, IError> {
         if !self.started {
             return Err(IError::HasntStarted);
-        }
-
-        if self.outcome.is_some() {
+        } else if self.outcome.is_some() {
             return Ok(Status::Finished);
+        } else if self.player_choices.is_some() {
+            return Ok(Status::WaitingForChoice);
         }
 
         // peek at the top of the call stack, perform node actions to the tree/board. Provide a
@@ -130,6 +175,10 @@ impl Interpreter {
             return Ok(Status::Finished);
         };
 
+        self.handle_eval(call_result)
+    }
+
+    fn handle_eval(&mut self, call_result: Eval) -> Result<Status, IError> {
         match call_result {
             Eval::Finished(succeeded) => {
                 // pop frame that finished
@@ -189,22 +238,50 @@ impl Interpreter {
                 self.outcome = Some(outcome);
                 return Ok(Status::Finished);
             }
+
+            Eval::PlayerChoices { pid, matches } => {
+                self.player_choices = Some((pid, matches));
+                return Ok(Status::WaitingForChoice);
+            }
         }
 
         Ok(Status::InProgress)
     }
 
-    /// Runs an entire scoph program without stopping. Will run the visitor methods on the
-    /// specified capabilities.
-    pub fn run<V: Visitor, C: Capabilities>(&mut self, visitor: &mut V) -> Result<(), IError> {
-        self.startup(visitor)?;
+    /// Runs a TRRBT program without calling startup. Will break if the interpreter is waiting for a
+    /// player choice.
+    ///
+    /// NOTE: will fail if startup is not called prior. It's reccomended to use [Interpreter::run]
+    /// to start your program.
+    pub fn resume<V: Visitor, C: Capabilities>(&mut self, visitor: &mut V) -> Result<(), IError> {
+        loop {
+            let status = self.step()?;
+            match status {
+                Status::Finished => break,
+                Status::WaitingForChoice => {
+                    let Some((pid, matches)) = self.player_choices.as_ref() else {
+                        unreachable!();
+                    };
+                    visitor.present_choices(pid, matches);
+                    return Ok(());
+                }
+                _ => {}
+            }
 
-        while !matches!(self.step()?, Status::Finished) {
             if C::can_view_board() {
                 visitor.view_board(&self.board);
             }
         }
         Ok(())
+    }
+
+    /// Runs an entire scoph program without stopping. Will run the visitor methods on the
+    /// specified capabilities.
+    ///
+    /// NOTE: this function will return after presenting player choices.
+    pub fn run<V: Visitor, C: Capabilities>(&mut self, visitor: &mut V) -> Result<(), IError> {
+        self.startup(visitor)?;
+        self.resume::<V, C>(visitor)
     }
 
     /// Run an interpreter the whole way through with all capabilities

@@ -2,7 +2,10 @@ use std::ffi::CStr;
 
 use petgraph::graph::NodeIndex;
 
-use crate::{common::TRRBTPattern, interpreter::BehaviorTree};
+use crate::{
+    common::{PlayerId, TRRBTPattern},
+    interpreter::{BehaviorTree, stack::PlayerChoices},
+};
 
 // tells the interpreter what the visitor is allowed to do
 pub trait Capabilities {
@@ -84,6 +87,10 @@ pub trait Visitor {
         }
         println!("<===========================>");
     }
+
+    fn present_choices(&mut self, player_id: &PlayerId, choices: &PlayerChoices) {
+        println!("PID:({:?}) {:?}", player_id, choices);
+    }
 }
 
 /// Default visitor that prints to stdout
@@ -103,4 +110,6 @@ impl Visitor for Dummy {
         _call_stack: impl Iterator<Item = StackFrameInfo>,
     ) {
     }
+
+    fn present_choices(&mut self, _player_id: &PlayerId, _choices: &PlayerChoices) {}
 }

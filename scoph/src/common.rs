@@ -1,11 +1,16 @@
+mod pattern;
+mod tree;
+mod choice;
+
 use std::{ffi::CString, str::FromStr};
 
 use regex::Replacer;
 use serde::{Deserialize, Serialize};
 use serde_with::{NoneAsEmptyString, serde_as};
 
-mod pattern;
 pub use pattern::{TRRBTPattern, toodee_pattern};
+pub use tree::BehaviorTree;
+pub use choice::{Rewrite, MatchCoords, PlayerChoices};
 #[cfg(test)]
 mod test;
 

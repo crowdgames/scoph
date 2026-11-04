@@ -7,7 +7,7 @@ use ratatui::{
 };
 use scoph::{
     common::{NodeAction, TRRBTPattern},
-    interpreter::BehaviorTree,
+    prelude::BehaviorTree,
     prelude::NodeIndex,
 };
 use tui_tree_widget::{Block, Tree, TreeItem, TreeState};

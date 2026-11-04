@@ -1,12 +1,16 @@
 use std::ffi::{CStr, OsStr, c_char};
 
 /// cbindgen:ignore
-use scoph::interpreter::{BehaviorTree, Interpreter, Outcome, Status, Visitor};
+use scoph::{
+    interpreter::{Interpreter, Outcome, Status, Visitor},
+    prelude::BehaviorTree,
+};
 
 pub struct ScophIntrp(Interpreter);
 
 mod board;
 mod error;
+mod play;
 
 use error::ScophError;
 
@@ -76,6 +80,9 @@ pub enum ScophIntrpResult {
     /// The interpreter is finished running the game. Either by completing running the tree or
     /// finding a winner.
     Finished,
+    /// The interpreter has stepped into a "player" node, and the user must help the player make a
+    /// choice. See [scoph_view_choices] and [scoph_make_choice]
+    WaitingForChoice,
 }
 
 /// Calls the startup method on the interpreter. Meant to initialize any necessary engine logic for
@@ -121,6 +128,7 @@ pub extern "C" fn scoph_intrp_step(
                 Status::Finished => ScophIntrpResult::Finished,
                 Status::InProgress => ScophIntrpResult::InProgress,
                 Status::Unstarted => ScophIntrpResult::Unstarted,
+                Status::WaitingForChoice => ScophIntrpResult::WaitingForChoice,
             }
         },
         Err(i) => {

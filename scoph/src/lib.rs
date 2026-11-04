@@ -6,8 +6,8 @@ pub mod interpreter;
 // Bare necessities for someone using the rust crate
 pub mod prelude {
     use super::*;
-    pub use common::TRRBTPattern;
-    pub use interpreter::{BehaviorTree, Interpreter};
+    pub use common::{BehaviorTree, TRRBTPattern};
+    pub use interpreter::Interpreter;
 
     pub type NodeIndex = petgraph::graph::NodeIndex;
 }

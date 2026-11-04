@@ -1,6 +1,8 @@
 use petgraph::graph::NodeIndex;
 use thiserror::Error;
 
+use crate::common::NodeAction;
+
 #[derive(Error, Debug)]
 pub enum IError {
     #[error("Missing Child at {child}, node has {child_count} children")]
@@ -27,4 +29,13 @@ pub enum IError {
 
     #[error("An x-link transform points to a target that doesn't exist")]
     BadLink { target: String },
+
+    #[error("A player node has a child that is neither transform nor rewrite: ({0:?}) {1:#?}")]
+    BadPlayerChild(NodeIndex, NodeAction),
+
+    #[error("Attempted to make a choice when interpreter doesn't have any")]
+    NoChoices,
+
+    #[error("Made a player choice that had no matching coordinate on the board")]
+    BadChoice,
 }
