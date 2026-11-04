@@ -1204,6 +1204,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ordermap"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16a756ddcdeb6c0efc8927bdf0ed112885815a35ba350472a467be5104f01ca1"
+dependencies = [
+ "indexmap 2.14.2",
+]
+
+[[package]]
 name = "palette"
 version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1746,6 +1755,7 @@ dependencies = [
  "anyhow",
  "derive_more",
  "itertools 0.15.0",
+ "ordermap",
  "petgraph",
  "pretty_assertions",
  "rand 0.10.3",

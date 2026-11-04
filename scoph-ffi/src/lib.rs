@@ -1,7 +1,10 @@
 use std::ffi::{CStr, OsStr, c_char};
 
 /// cbindgen:ignore
-use scoph::interpreter::{BehaviorTree, Interpreter, Outcome, Status, Visitor};
+use scoph::{
+    interpreter::{Interpreter, Outcome, Status, Visitor},
+    prelude::BehaviorTree,
+};
 
 pub struct ScophIntrp(Interpreter);
 

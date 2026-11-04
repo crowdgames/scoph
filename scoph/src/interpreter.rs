@@ -1,7 +1,6 @@
 mod err;
 mod stack;
 mod transforms;
-mod tree;
 mod visitor;
 
 use std::rc::Rc;
@@ -14,10 +13,11 @@ pub use visitor::StackFrameInfo;
 pub use visitor::Visitor;
 
 use petgraph::graph::NodeIndex;
-pub use tree::BehaviorTree;
+use crate::common::BehaviorTree;
 
 use transforms::TransformStack;
 
+use crate::common::NodeAction;
 use crate::common::PlayerId;
 use crate::interpreter::stack::PlayerChoices;
 use crate::{
@@ -135,6 +135,9 @@ impl Interpreter {
         let (x, y) = coord;
         self.board.rewrite_at(x, y, &rhs)?;
 
+        // player succeeded, pass the result to its parent in the stack
+        let _ = self.handle_eval(Eval::Finished(true))?;
+
         Ok(())
     }
 
@@ -172,6 +175,10 @@ impl Interpreter {
             return Ok(Status::Finished);
         };
 
+        self.handle_eval(call_result)
+    }
+
+    fn handle_eval(&mut self, call_result: Eval) -> Result<Status, IError> {
         match call_result {
             Eval::Finished(succeeded) => {
                 // pop frame that finished
