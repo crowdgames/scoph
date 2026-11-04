@@ -1,16 +1,15 @@
+mod choice;
 mod pattern;
 mod tree;
-mod choice;
 
 use std::{ffi::CString, str::FromStr};
 
-use regex::Replacer;
 use serde::{Deserialize, Serialize};
 use serde_with::{NoneAsEmptyString, serde_as};
 
+pub use choice::{MatchCoords, PlayerChoices, Rewrite};
 pub use pattern::{TRRBTPattern, toodee_pattern};
 pub use tree::BehaviorTree;
-pub use choice::{Rewrite, MatchCoords, PlayerChoices};
 #[cfg(test)]
 mod test;
 
@@ -33,22 +32,27 @@ impl From<&str> for PlayerId {
 
 /// Takes a source string and swaps all occurrences of [what] with [with] and vice-versa.
 pub fn swap_chars(source: &str, what: &str, with: &str) -> String {
-    // NOTE: lot of unwraps.
-    let r = regex::Regex::new(&format!("({what}|{with})")).unwrap();
+    let mut out = String::new();
 
-    struct Swapper<'a>(&'a str, &'a str);
-
-    impl<'a> Replacer for Swapper<'a> {
-        fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
-            if &caps[0] == self.0 {
-                dst.push_str(self.1);
-            } else {
-                dst.push_str(self.0);
-            }
+    let mut i = 0;
+    while i < source.len() {
+        if source.len().checked_sub(what.len()).is_some_and(|l| i <= l)
+            && &source[i..(i + what.len())] == what
+        {
+            out.push_str(with);
+            i += what.len();
+        } else if source.len().checked_sub(with.len()).is_some_and(|l| i <= l)
+            && &source[i..(i + with.len())] == with
+        {
+            out.push_str(what);
+            i += with.len();
+        } else {
+            out.push_str(&source[i..(i + 1)]);
+            i += 1;
         }
     }
-    let r = r.replace_all(source, Swapper(what, with));
-    String::from_str(&r).unwrap()
+
+    out
 }
 
 #[serde_as]

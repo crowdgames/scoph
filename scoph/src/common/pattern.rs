@@ -89,6 +89,7 @@ impl TRRBTPattern {
             "comparand pattern should fit within the dimensions of the comparer. other.height: {other_height} > self.height: {self_height}"
         );
 
+        // NOTE: work w/ Anand to find a faster search
         let mut coords = vec![];
         for y in 0..=(self_height - other_height) {
             for x in 0..=(self_width - other_width) {

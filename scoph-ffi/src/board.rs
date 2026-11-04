@@ -1,6 +1,48 @@
 use std::ffi::{CStr, c_char, c_uint};
 
+/// cbindgen:ignore
+use scoph::common::TRRBTPattern;
+
 use crate::{ScophError, ScophIntrp};
+
+pub struct Pattern<'a>(&'a TRRBTPattern);
+
+/// Gives the size of a pattern's dimensions.
+#[unsafe(no_mangle)]
+pub extern "C" fn scoph_pattern_size(
+    pat: *const Pattern,
+    pat_width: *mut c_uint,
+    pat_height: *mut c_uint,
+) {
+    let (w, h) = unsafe { (*pat).0.pattern_size() };
+
+    unsafe {
+        *pat_width = w as c_uint;
+        *pat_height = h as c_uint;
+    }
+}
+
+/// Gives the cell at the specified layer and position.
+#[unsafe(no_mangle)]
+pub extern "C" fn scoph_pattern_cell(
+    pat: *const Pattern,
+    layer_name: *const c_char,
+    x: c_uint,
+    y: c_uint,
+    dst: *mut *const c_char,
+) -> ScophError {
+    let pat = unsafe { (*pat).0 };
+
+    match pat.get_cell_c(x as usize, y as usize, unsafe {
+        CStr::from_ptr(layer_name).to_str().unwrap()
+    }) {
+        Ok(cell) => unsafe {
+            *dst = cell;
+            ScophError::Ok
+        },
+        Err(e) => e.into(),
+    }
+}
 
 /// Provides the size in cells of a layer on the game's board. Will return a
 /// [`ScophError::MissingLayerOnSrc`] if the layer doesn't exist on the board.
