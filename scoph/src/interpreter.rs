@@ -12,12 +12,11 @@ use toodee::Coordinate;
 pub use visitor::StackFrameInfo;
 pub use visitor::Visitor;
 
-use petgraph::graph::NodeIndex;
 use crate::common::BehaviorTree;
+use petgraph::graph::NodeIndex;
 
 use transforms::TransformStack;
 
-use crate::common::NodeAction;
 use crate::common::PlayerId;
 use crate::interpreter::stack::PlayerChoices;
 use crate::{
@@ -43,13 +42,18 @@ pub struct Interpreter {
     outcome: Option<Outcome>,
 }
 
+/// The status of an interpreter after a step.
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub enum Status {
     #[default]
+    /// The interpreter has not had startup called.
     Unstarted,
+    /// The game is still running.
     InProgress,
+    /// The game has concluded with an [Outcome].
     Finished,
+    /// The game is waiting for the player to make a choice.
     WaitingForChoice,
 }
 
@@ -119,24 +123,24 @@ impl Interpreter {
     /// interpreter's latest status wasn't [Status::WaitingForChoice]
     pub fn player_choose(
         &mut self,
-        lhs: &TRRBTPattern,
-        rhs: &TRRBTPattern,
-        coord: Coordinate,
+        rewrite_index: usize,
+        match_index: usize,
     ) -> Result<(), IError> {
-        let (_, choices) = self.player_choices.take().ok_or(IError::NoChoices)?;
+        let (_, choices) = self.player_choices.as_ref().ok_or(IError::NoChoices)?;
 
-        let rhs = choices
-            .into_iter()
-            .find_map(|((choice_lhs, choice_rhs), coords)| {
-                (&choice_lhs == lhs && &choice_rhs == rhs && coords.contains(&coord)).then_some(rhs)
-            })
-            .ok_or(IError::BadChoice)?;
+        let (rhs, (x, y)) = choices
+            .get_index(rewrite_index)
+            .map(|((_, rhs), coords)| (rhs, coords[match_index]))
+            .ok_or_else(|| {
+                IError::BadChoice
+            })?;
 
-        let (x, y) = coord;
-        self.board.rewrite_at(x, y, &rhs)?;
+        self.board.rewrite_at(x, y, rhs)?;
 
         // player succeeded, pass the result to its parent in the stack
         let _ = self.handle_eval(Eval::Finished(true))?;
+
+        self.player_choices = None;
 
         Ok(())
     }

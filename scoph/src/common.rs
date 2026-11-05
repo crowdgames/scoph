@@ -14,6 +14,7 @@ pub use choice::{Rewrite, MatchCoords, PlayerChoices};
 #[cfg(test)]
 mod test;
 
+/// An ID of a player from the TRRBT program.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PlayerId(pub CString);
 
@@ -51,6 +52,7 @@ pub fn swap_chars(source: &str, what: &str, with: &str) -> String {
     String::from_str(&r).unwrap()
 }
 
+/// The comment and id of a node from a TRRBT program.
 #[serde_as]
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Info {
@@ -217,6 +219,7 @@ impl NodeAction {
         )
     }
 
+    /// Check if this action is a transform.
     pub fn is_transform(&self) -> bool {
         matches!(
             self,

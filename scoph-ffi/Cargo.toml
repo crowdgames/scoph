@@ -8,6 +8,7 @@ build = "build.rs"
 [lib]
 name = "scoph"
 crate-type = ["staticlib"]
+doc = false
 
 [dependencies]
 scoph = { path = "../scoph" }

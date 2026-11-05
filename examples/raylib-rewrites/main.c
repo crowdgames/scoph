@@ -79,7 +79,7 @@ void draw_board(ScophIntrp *intrp, ScophIntrpResult last_res) {
 int main() {
   // scoph setup code
   ScophIntrp *intrp;
-  ScophError code = scoph_intrp_load(&intrp, "rewrite-dots.json");
+  ScophError code = scoph_intrp_load(&intrp, "games/tests/rewrite-dots.json");
   if (code) {
     fail_and_print(code, intrp, "Error occurred while trying to load the JSON");
   }

@@ -25,8 +25,8 @@ type TRRBTTree = DiGraph<BehaviorNode, BehaviorEdge>;
 
 // TODO: implement a custom serializer for BehaviorTree
 
-/// A BehaviorTree is a non-mutating structure that represents the structure of a full TRRBT
-/// program. They can be loaded from a TRRBT json file and be transformed.
+/// An immutable structure that represents a TRRBT program. 
+/// They can be deserialized a from json files.
 #[derive(Debug)]
 pub struct BehaviorTree {
     name: CString,
