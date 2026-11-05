@@ -1,4 +1,3 @@
 /target
-examples/*/lib
-examples/*/test
-examples/*/include/scoph.h
+examples/lib
+/build

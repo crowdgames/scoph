@@ -10,6 +10,7 @@ pub struct ScophIntrp(Interpreter);
 
 mod board;
 mod error;
+mod pattern;
 mod play;
 
 use error::ScophError;

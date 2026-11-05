@@ -896,8 +896,7 @@ fn test_player_choice() -> Result<()> {
 
     // game will run until we must collect our choices
     intrp.run::<_, Bare>(&mut chs)?;
-    let ((lhs, rhs), coords) = chs.expected_choices.get_index(0).unwrap();
-    intrp.player_choose(lhs, rhs, coords[0])?;
+    intrp.player_choose(0, 0)?;
     intrp.resume::<_, Full>(&mut chs)?;
 
     assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));

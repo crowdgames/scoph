@@ -3,13 +3,18 @@ use toodee::Coordinate;
 
 use super::TRRBTPattern;
 
+/// A 2-tuple of patterns. The left-hand side will be searched for on the board, and the right-hand
+/// side is the aforementioned's replacement.
 pub type Rewrite = (TRRBTPattern, TRRBTPattern);
+/// A list of coordinates where the left-hand side of a rewrite was matched and can be rewritten.
 pub type MatchCoords = Vec<Coordinate>;
 
+/// An ordered map of [Rewrite]'s to lists of coordinates where they matched on the board.
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct PlayerChoices(OrderMap<Rewrite, MatchCoords>);
 
 impl PlayerChoices {
+    /// Inserts a rewrite and list of coordinates. Will not be inserted if coords is empty.
     pub fn insert(&mut self, rw: Rewrite, coords: MatchCoords) {
         if !coords.is_empty() {
             self.0.insert(rw, coords);
@@ -20,12 +25,15 @@ impl PlayerChoices {
         self.0.is_empty()
     }
 
+    /// Returns a reference to the rewrite and a slice of its matched coordinates if it exists.
+    /// Indexes are respective to the transformed tree.
     pub fn get_index(&self, index: usize) -> Option<(&Rewrite, &[Coordinate])> {
         self.0
             .get_index(index)
             .map(|(rw, coord)| (rw, coord.as_slice()))
     }
 
+    /// The count of rewrites able to be done on the board
     pub fn len(&self) -> usize {
         self.0.len()
     }

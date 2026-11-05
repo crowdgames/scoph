@@ -34,10 +34,13 @@ pub enum MissingLayer {
     Src(String),
 }
 
+/// A key-value structure of layer names ([CString]s) and 2D arrays
 #[derive(Debug, Default, Hash, Clone, Serialize, PartialEq, Eq)]
 pub struct TRRBTPattern(LayersAndPatterns);
 
 impl TRRBTPattern {
+    /// Creates a pattern with a single layer named "main," filled with the provided default cell at
+    /// the specified dimensions.
     pub fn filled(cell: &str, width: usize, height: usize) -> Self {
         let mut core = LayersAndPatterns::new();
         core.insert(
