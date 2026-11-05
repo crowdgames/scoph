@@ -12,7 +12,6 @@ ordermap = "1.2.2"
 petgraph = { version = "0.8.3", features = ["serde-1"] }
 pretty_assertions = "1.4.1"
 rand = "0.10.3"
-regex = "1.13.1"
 serde = { version = "1.0.229", default-features=false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0.151", default-features=false, features = ["alloc"] }
 serde_with = "3.23.0"
