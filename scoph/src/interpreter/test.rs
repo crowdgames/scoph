@@ -930,3 +930,86 @@ fn test_player_no_rewrites() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_tic_tac_toe_row_race() -> Result<()> {
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
+        "../games/trees/tic-tac-toe.json",
+    )?);
+
+    let us_pat = TRRBTPattern::from([("main", [["_"]])]);
+    let x_pat = TRRBTPattern::from([("main", [["X"]])]);
+    let y_pat = TRRBTPattern::from([("main", [["Y"]])]);
+
+    let mut chs = Chooser {
+        cmp: Comparer {
+            expected_name: "tic-tac-toe".to_string(),
+            expected_description: String::new(),
+            board_states: vec![],
+        },
+        expected_choices: PlayerChoices::from([(
+            (us_pat.clone(), x_pat.clone()),
+            [
+                (0, 0),
+                (1, 0),
+                (2, 0),
+                (0, 1),
+                (1, 1),
+                (2, 1),
+                (0, 2),
+                (1, 2),
+                (2, 2),
+            ],
+        )]),
+    };
+
+    intrp.run_full(&mut chs)?;
+    intrp.player_choose(0, 0)?;
+
+    chs.expected_choices = PlayerChoices::from([(
+        (us_pat.clone(), y_pat.clone()),
+        [
+            (1, 0),
+            (2, 0),
+            (0, 1),
+            (1, 1),
+            (2, 1),
+            (0, 2),
+            (1, 2),
+            (2, 2),
+        ],
+    )]);
+
+    intrp.resume::<_, Full>(&mut chs)?;
+    intrp.player_choose(0, 5)?;
+
+    chs.expected_choices = PlayerChoices::from([(
+        (us_pat.clone(), x_pat.clone()),
+        [(1, 0), (2, 0), (0, 1), (1, 1), (2, 1), (1, 2), (2, 2)],
+    )]);
+
+    intrp.resume::<_, Full>(&mut chs)?;
+    intrp.player_choose(0, 0)?;
+
+    chs.expected_choices = PlayerChoices::from([(
+        (us_pat.clone(), y_pat.clone()),
+        [(2, 0), (0, 1), (1, 1), (2, 1), (1, 2), (2, 2)],
+    )]);
+
+    intrp.resume::<_, Full>(&mut chs)?;
+    intrp.player_choose(0, 4)?;
+
+    chs.expected_choices = PlayerChoices::from([(
+        (us_pat.clone(), x_pat.clone()),
+        [(2, 0), (0, 1), (1, 1), (2, 1), (2, 2)],
+    )]);
+
+    intrp.resume::<_, Full>(&mut chs)?;
+    intrp.player_choose(0, 0)?;
+
+    intrp.resume::<_, Full>(&mut chs)?;
+
+    assert_eq!(intrp.outcome(), Some(&Outcome::Win("X".into())));
+
+    Ok(())
+}
