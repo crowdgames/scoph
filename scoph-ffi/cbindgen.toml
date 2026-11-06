@@ -3,4 +3,5 @@ language = "C"
 include_guard = "scoph_h"
 
 [parse]
-parse_deps = false
+parse_deps = true
+include = ["scoph"]   

@@ -1,24 +1,30 @@
-use std::ffi::{c_char, c_uint};
-///cbindgen:ignore
-use scoph::common::{PlayerChoices, TRRBTPattern};
 use crate::{ScophIntrp, error::ScophError, pattern::Pattern};
+///cbindgen:ignore
+use scoph::common::TRRBTPattern;
+
+use scoph::common::PlayerChoices;
+use std::ffi::{c_char, c_uint};
 
 /// Represents the set of choices that the interpreter is waiting for the player to pick
-pub struct ScophPlayerChoices(*const c_char, *const PlayerChoices);
+#[repr(C)]
+pub struct ScophPlayerChoices {
+    player_id: *const c_char,
+    choices: *const PlayerChoices,
+}
 
 /// Get the count of possible rewrites that the player can choose
 #[unsafe(no_mangle)]
 pub extern "C" fn scoph_choices_count(choices: ScophPlayerChoices) -> c_uint {
-    unsafe { (*choices.1).len() as c_uint }
+    unsafe { (*choices.choices).len() as c_uint }
 }
 
 /// Get the count of matches of the left-hand side of the rewrite at the given index.
 #[unsafe(no_mangle)]
 pub extern "C" fn scoph_choices_match_count(
-    choices: ScophPlayerChoices,
+    choices: *const PlayerChoices,
     rewrite_index: c_uint,
 ) -> c_uint {
-    unsafe { (*choices.1).get_index(rewrite_index as usize) }
+    unsafe { (*choices).get_index(rewrite_index as usize) }
         .map(|(_, matches)| matches.len() as c_uint)
         .unwrap_or(0)
 }
@@ -27,12 +33,12 @@ pub extern "C" fn scoph_choices_match_count(
 /// invalid. See [scoph_choices_count].
 #[unsafe(no_mangle)]
 pub extern "C" fn scoph_choices_rewrites(
-    choices: ScophPlayerChoices,
+    choices: *const PlayerChoices,
     rewrite_index: c_uint,
     lhs: *mut Pattern,
     rhs: *mut Pattern,
 ) {
-    let (lrw, rrw) = unsafe { &*choices.1 }
+    let (lrw, rrw) = unsafe { &*choices }
         .get_index(rewrite_index as usize)
         .map(|(rewrite, _)| rewrite)
         .expect("Non-existent index for choice");
@@ -46,13 +52,13 @@ pub extern "C" fn scoph_choices_rewrites(
 /// Get the coordinates at the specified index of the specified rewrite
 #[unsafe(no_mangle)]
 pub extern "C" fn scoph_choices_coords(
-    choices: ScophPlayerChoices,
+    choices: *const PlayerChoices,
     rewrite_index: c_uint,
     match_index: c_uint,
     x: *mut c_uint,
     y: *mut c_uint,
 ) {
-    let (rwx, rwy) = unsafe { &*choices.1 }
+    let (rwx, rwy) = unsafe { &*choices }
         .get_index(rewrite_index as usize)
         .map(|(_, coords)| coords[match_index as usize])
         .expect("Non-existent index for choice");
@@ -64,10 +70,10 @@ pub extern "C" fn scoph_choices_coords(
 }
 
 /// Get the ID of the player associated with these choices
-#[unsafe(no_mangle)]
-pub extern "C" fn scoph_choices_player_id(choices: ScophPlayerChoices) -> *const c_char {
-    choices.0
-}
+// #[unsafe(no_mangle)]
+// pub extern "C" fn scoph_choices_player_id(choices: ScophPlayerChoices) -> *const c_char {
+//     choices.player_id
+// }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn scoph_intrp_player_choose(
@@ -99,8 +105,10 @@ pub extern "C" fn scoph_intrp_check_choices(
             choices: &PlayerChoices,
         ) {
             unsafe {
-                (*self.0) =
-                    ScophPlayerChoices(player_id.0.as_ptr(), choices as *const PlayerChoices)
+                (*self.0) = ScophPlayerChoices {
+                    player_id: player_id.0.as_ptr(),
+                    choices: choices as *const PlayerChoices,
+                }
             }
         }
     }

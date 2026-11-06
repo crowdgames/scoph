@@ -8,7 +8,6 @@ use std::rc::Rc;
 pub use err::IError;
 use stack::ExecutionFrame;
 pub use stack::Outcome;
-use toodee::Coordinate;
 pub use visitor::StackFrameInfo;
 pub use visitor::Visitor;
 
@@ -131,9 +130,7 @@ impl Interpreter {
         let (rhs, (x, y)) = choices
             .get_index(rewrite_index)
             .map(|((_, rhs), coords)| (rhs, coords[match_index]))
-            .ok_or_else(|| {
-                IError::BadChoice
-            })?;
+            .ok_or_else(|| IError::BadChoice)?;
 
         self.board.rewrite_at(x, y, rhs)?;
 
