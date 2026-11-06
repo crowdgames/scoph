@@ -61,7 +61,7 @@ void do_player_choice(uint32_t x, uint32_t y) {
 void draw_move(const char *content, unsigned int x, unsigned int y) {
   Color text_color;
   if (strcmp(content, "_") == 0) {
-    text_color = GRAY;
+    text_color = DARKGRAY;
   } else if (strcmp(content, "X") == 0) {
     text_color = BLUE;
   } else if (strcmp(content, "O") == 0) {
@@ -69,7 +69,7 @@ void draw_move(const char *content, unsigned int x, unsigned int y) {
   }
 
   DrawTextEx(GetFontDefault(), content,
-             (Vector2){board_rect.x + (float)x * CELL_SIZE,
+             (Vector2){board_rect.x + CELL_SIZE / 4.0 + (float)x * CELL_SIZE,
                        board_rect.y + (float)y * CELL_SIZE},
              CELL_SIZE, .0, text_color);
 }
@@ -99,7 +99,8 @@ int main() {
         (int)((mp.y - board_rect.y) / CELL_SIZE),
     };
 
-    if (hover_board && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+    if (turn != NONE && hover_board &&
+        IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
       do_player_choice((uint32_t)grid_pos.x, (uint32_t)grid_pos.y);
     }
 
