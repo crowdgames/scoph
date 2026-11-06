@@ -1,11 +1,7 @@
 use derive_more::Debug;
 use petgraph::graph::NodeIndex;
 use rand::seq::IteratorRandom;
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    rc::Rc,
-};
-use toodee::Coordinate;
+use std::{collections::HashSet, rc::Rc};
 
 use crate::{
     common::{NodeAction, PlayerId, TRRBTPattern},
@@ -18,8 +14,8 @@ use crate::{
 
 pub use crate::common::PlayerChoices;
 
-#[derive(Debug)]
-enum StackState {
+#[derive(Debug, Clone)]
+pub enum StackState {
     LoopUntilAll {
         any_success: bool,
         all_failed: bool,
@@ -64,7 +60,7 @@ impl StackState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Source {
     // node action from a real node in the tree
     Tree {
@@ -117,7 +113,7 @@ impl Source {
 }
 
 /// A frame that lives on the execution stack
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExecutionFrame {
     source: Source,
     child: usize,
@@ -186,10 +182,10 @@ impl ExecutionFrame {
                     Transform::Rotate270,
                 ],
             ),
-            N::XIdent => StackState::make_transform(false, [Transform::Ident]),
+            N::XIdent => StackState::make_transform(true, [Transform::Ident]),
             N::XLink { .. } => StackState::TransformLink { copied: false },
             N::XSwap { what, with } => {
-                StackState::make_transform(false, [Transform::SwapOnly(what.clone(), with.clone())])
+                StackState::make_transform(true, [Transform::SwapOnly(what.clone(), with.clone())])
             }
             a => {
                 todo!("No StackState for {a:?} yet");
@@ -407,17 +403,20 @@ impl ExecutionFrame {
                         return Ok(Eval::TransformFinished);
                     }
 
+                    let child_index = children[self.child];
+                    let tree = self.source.tree();
+                    let child_node = tree.get_node_action(child_index);
                     if *transform < transforms_list.len() {
                         transform_stack.push(transforms_list[*transform].clone());
                         *transform += 1;
-                        let child_index = children[self.child];
-                        let tree = self.source.tree();
-                        let child_node = tree.get_node_action(child_index);
+
                         if !child_node.transformable() {
                             return Ok(Eval::Push(child_index));
                         }
+
                         let transformed = transform_stack.apply_transforms(child_node.clone());
                         transform_stack.pop();
+
                         if !seen_transforms.contains(&transformed) {
                             seen_transforms.insert(transformed.clone());
                             return Ok(Eval::TransformPush(Self::from_source(Source::Transform {
@@ -555,5 +554,13 @@ impl ExecutionFrame {
 
     pub fn info(&self) -> StackFrameInfo {
         todo!("I changed how calls are source so forgive me my poor tests")
+    }
+
+    pub fn child(&self) -> usize {
+        self.child
+    }
+
+    pub fn state(&self) -> &StackState {
+        &self.state
     }
 }

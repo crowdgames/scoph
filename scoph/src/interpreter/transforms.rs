@@ -123,6 +123,10 @@ impl TransformStack {
             .rev()
             .fold(na, |acc, p| p.apply(&acc).unwrap_or(acc))
     }
+
+    pub(crate) fn as_slice(&self) -> &[Transform] {
+        self.0.as_slice()
+    }
 }
 
 #[cfg(test)]

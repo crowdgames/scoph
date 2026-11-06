@@ -7,7 +7,10 @@ use std::{
 use super::*;
 use crate::{
     common::toodee_pattern,
-    interpreter::visitor::{Bare, Dummy},
+    interpreter::{
+        transforms::Transform,
+        visitor::{Bare, Dummy},
+    },
 };
 use anyhow::Result;
 use pretty_assertions::assert_eq;
@@ -17,6 +20,7 @@ struct Comparer {
     expected_name: String,
     expected_description: String,
     board_states: Vec<TRRBTPattern>,
+    current_stack: (Vec<ExecutionFrame>, Vec<Transform>, Vec<ExecutionFrame>),
 }
 
 impl Visitor for Comparer {
@@ -30,6 +34,19 @@ impl Visitor for Comparer {
 
     fn view_board(&mut self, board: &TRRBTPattern) {
         self.board_states.push(board.clone());
+    }
+
+    fn stack_trace(
+        &mut self,
+        call_stack: &[ExecutionFrame],
+        transform_stack: &[Transform],
+        passed_frames: &[ExecutionFrame],
+    ) {
+        self.current_stack = (
+            call_stack.to_vec(),
+            transform_stack.to_owned(),
+            passed_frames.to_vec(),
+        );
     }
 }
 
@@ -58,6 +75,7 @@ fn test_only_set_board() -> Result<()> {
         expected_name: "Only set-board".to_string(),
         expected_description: "A single set-board node on the call stack".to_string(),
         board_states: vec![],
+        current_stack: Default::default(),
     };
 
     interpreter.run_full(&mut cmp)?;
@@ -101,6 +119,7 @@ fn test_loop_until_all_with_set_board() -> Result<()> {
         expected_description: "Expected to run forever because set-board always succeeds"
             .to_string(),
         board_states: vec![],
+        current_stack: Default::default(),
     };
 
     // Idea is that this tree will run forever, do to the semantics of the language
@@ -134,6 +153,7 @@ fn test_win_via_match() -> Result<()> {
         expected_name: "Single Match".to_string(),
         expected_description: "Game ends with single match".to_string(),
         board_states: vec![],
+        current_stack: Default::default(),
     };
     let mut intrp = Interpreter::new(BehaviorTree::load_from_json_text(GAME)?);
     intrp.run_full(&mut cmp)?;
@@ -152,6 +172,7 @@ fn test_win_via_failed_match() -> Result<()> {
         expected_name: "Single Match Fail".to_string(),
         expected_description: "Game ends with single match".to_string(),
         board_states: vec![],
+        current_stack: Default::default(),
     };
     let mut intrp = Interpreter::new(BehaviorTree::load_from_json_text(GAME)?);
     intrp.run_full(&mut cmp)?;
@@ -212,6 +233,7 @@ fn test_win_via_match_times() -> Result<()> {
         expected_description: "Game ends if we match a pattern a certain number of times"
             .to_string(),
         board_states: vec![],
+        current_stack: Default::default(),
     };
 
     let mut intrp = Interpreter::new(BehaviorTree::load_from_json_text(GAME)?);
@@ -288,6 +310,7 @@ fn test_loop_that_should_end() -> Result<()> {
         expected_name:"Order and replace".to_string(),
         expected_description: "Run an order node with two children. First a set-board, then a loop-until-all with a single rewrite child".to_string(),
         board_states: vec![],
+        current_stack: Default::default(),
     };
 
     int.run_full(&mut cmp)?;
@@ -371,6 +394,7 @@ fn test_none_quits_on_success() -> Result<()> {
             expected_description: "A none node that will quit when it has a successful rewrite"
                 .to_string(),
             board_states: vec![],
+            current_stack: Default::default(),
         };
 
         let mut intrp =
@@ -441,6 +465,7 @@ fn test_all_quits_on_failure() -> Result<()> {
             expected_name: "All Quits".to_string(),
             expected_description: "All quits after failing its first rewrite".to_string(),
             board_states: vec![],
+            current_stack: Default::default(),
         };
 
         let mut intrp =
@@ -517,6 +542,7 @@ fn test_none_finishes() -> Result<()> {
         expected_name: "None doesn't quit".to_string(),
         expected_description: "A none node that won't quit because all rewrites fail".to_string(),
         board_states: vec![],
+        current_stack: Default::default(),
     };
     intrp.run_full(&mut cmp)?;
 
@@ -566,6 +592,7 @@ fn test_win_ends_game() -> Result<()> {
         expected_name: "Win Test".to_string(),
         expected_description: "Win node will end its game upon its first success".to_string(),
         board_states: vec![],
+        current_stack: Default::default(),
     };
     intrp.run_full(&mut cmp)?;
 
@@ -625,6 +652,7 @@ fn test_lose_ends_game() -> Result<()> {
         expected_name: "Lose Test".to_string(),
         expected_description: "Lose node will end its game upon its first success".to_string(),
         board_states: vec![],
+        current_stack: Default::default(),
     };
     intrp.run_full(&mut cmp)?;
 
@@ -683,6 +711,7 @@ fn test_tie_ends_game() -> Result<()> {
         expected_name: "Lose Test".to_string(),
         expected_description: "Lose node will end its game upon its first success".to_string(),
         board_states: vec![],
+        current_stack: Default::default(),
     };
     intrp.run_full(&mut cmp)?;
 
@@ -865,7 +894,11 @@ impl Visitor for Chooser {
     }
 
     fn present_choices(&mut self, player_id: &PlayerId, choices: &PlayerChoices) {
-        assert_eq!(choices, &self.expected_choices);
+        assert_eq!(
+            choices, &self.expected_choices,
+            "Didn't get expected choices for {:?}\n{:#?}",
+            player_id, self.cmp.current_stack
+        );
     }
 }
 
@@ -886,6 +919,7 @@ fn test_player_choice() -> Result<()> {
             expected_name: "Player Test".to_string(),
             expected_description: "Player wins with first rewrite".to_string(),
             board_states: vec![],
+            current_stack: Default::default(),
         },
         expected_choices: [
             ((x_pat.clone(), zero_pat.clone()), [(0, 0)]),
@@ -918,6 +952,7 @@ fn test_player_no_rewrites() -> Result<()> {
             expected_name: "Player Test Fail (from template)".to_string(),
             expected_description: "Player can't make any rewrites".to_string(),
             board_states: vec![],
+            current_stack: Default::default(),
         },
         expected_choices: PlayerChoices::default(),
     };
@@ -939,13 +974,14 @@ fn test_tic_tac_toe_row_race() -> Result<()> {
 
     let us_pat = TRRBTPattern::from([("main", [["_"]])]);
     let x_pat = TRRBTPattern::from([("main", [["X"]])]);
-    let y_pat = TRRBTPattern::from([("main", [["Y"]])]);
+    let o_pat = TRRBTPattern::from([("main", [["O"]])]);
 
     let mut chs = Chooser {
         cmp: Comparer {
             expected_name: "tic-tac-toe".to_string(),
             expected_description: String::new(),
             board_states: vec![],
+            current_stack: Default::default(),
         },
         expected_choices: PlayerChoices::from([(
             (us_pat.clone(), x_pat.clone()),
@@ -967,7 +1003,7 @@ fn test_tic_tac_toe_row_race() -> Result<()> {
     intrp.player_choose(0, 0)?;
 
     chs.expected_choices = PlayerChoices::from([(
-        (us_pat.clone(), y_pat.clone()),
+        (us_pat.clone(), o_pat.clone()),
         [
             (1, 0),
             (2, 0),
@@ -992,7 +1028,7 @@ fn test_tic_tac_toe_row_race() -> Result<()> {
     intrp.player_choose(0, 0)?;
 
     chs.expected_choices = PlayerChoices::from([(
-        (us_pat.clone(), y_pat.clone()),
+        (us_pat.clone(), o_pat.clone()),
         [(2, 0), (0, 1), (1, 1), (2, 1), (1, 2), (2, 2)],
     )]);
 

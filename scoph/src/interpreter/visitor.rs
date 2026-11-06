@@ -4,7 +4,10 @@ use petgraph::graph::NodeIndex;
 
 use crate::{
     common::{PlayerId, TRRBTPattern},
-    interpreter::{BehaviorTree, stack::PlayerChoices},
+    interpreter::{
+        stack::{ExecutionFrame, PlayerChoices},
+        transforms::Transform,
+    },
 };
 
 // tells the interpreter what the visitor is allowed to do
@@ -73,19 +76,41 @@ pub trait Visitor {
     /// Prints out the current call stack. By default prints to stdout.
     fn stack_trace(
         &mut self,
-        tree: &BehaviorTree,
-        call_stack: impl Iterator<Item = StackFrameInfo>,
+        call_stack: &[ExecutionFrame],
+        transform_stack: &[Transform],
+        passed_frames: &[ExecutionFrame],
     ) {
-        for (frame_index, (node_index, child_index)) in call_stack.enumerate() {
-            println!("= {frame_index} ====================");
-            println!("| {:?}", tree.get_node_action(node_index));
+        println!("- - - =====ES===== - - -");
+        for frame in call_stack {
+            print!("| ");
+            print!(
+                "action: {:?}, child: {:?}, state: {:?}",
+                frame.action(),
+                frame.child(),
+                frame.state()
+            );
+            println!(" |");
+        }
+        println!("==========\n");
 
-            let child_count = tree.get_node_neighbors(node_index).count();
-            if child_count > 0 {
-                println!("| child index: {} out of {}", child_index, child_count);
+        if !transform_stack.is_empty() {
+            println!("TS: {:?}", transform_stack);
+        }
+
+        if !passed_frames.is_empty() {
+            println!("<----PS---->");
+            for frame in passed_frames {
+                print!("| ");
+                print!(
+                    "action: {:?}, child: {:?}, state {:?}",
+                    frame.action(),
+                    frame.child(),
+                    frame.state()
+                );
+                println!(" |");
             }
         }
-        println!("<===========================>");
+        println!("");
     }
 
     fn present_choices(&mut self, player_id: &PlayerId, choices: &PlayerChoices) {
@@ -106,8 +131,9 @@ impl Visitor for Dummy {
 
     fn stack_trace(
         &mut self,
-        _tree: &BehaviorTree,
-        _call_stack: impl Iterator<Item = StackFrameInfo>,
+        _call_stack: &[ExecutionFrame],
+        _transform_stack: &[Transform],
+        _passed_frames: &[ExecutionFrame],
     ) {
     }
 

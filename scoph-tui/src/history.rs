@@ -22,12 +22,4 @@ impl Visitor for ReplHistory {
     fn view_board(&mut self, _board: &TRRBTPattern) {
         todo!()
     }
-
-    fn stack_trace(
-        &mut self,
-        _tree: &BehaviorTree,
-        _call_stack: impl Iterator<Item = StackFrameInfo>,
-    ) {
-        todo!()
-    }
 }

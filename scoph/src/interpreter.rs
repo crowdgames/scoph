@@ -222,9 +222,13 @@ impl Interpreter {
                 assert!(self.passed_frames.is_empty());
                 self.execution_stack.pop();
                 if let Some(frame) = self.execution_stack.last_mut()
-                    && !frame.action().is_transform()
+                    // && !frame.action().is_transform()
                 {
-                    frame.next_branch();
+                    if frame.action().is_transform() {
+                        self.transform_stack.pop();
+                    } else {
+                        frame.next_branch();
+                    }
                 }
             }
 
@@ -271,6 +275,14 @@ impl Interpreter {
 
             if C::can_view_board() {
                 visitor.view_board(&self.board);
+            }
+
+            if C::can_stack_trace() {
+                visitor.stack_trace(
+                    &self.execution_stack,
+                    self.transform_stack.as_slice(),
+                    &self.passed_frames,
+                );
             }
         }
         Ok(())
