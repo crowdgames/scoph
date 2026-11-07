@@ -241,15 +241,10 @@ impl Interpreter {
             Eval::TransformFinished => {
                 assert!(self.passed_frames.is_empty());
                 self.execution_stack.pop();
-                if let Some(frame) = self.execution_stack.last_mut() {
-                    let a = frame.action();
-                    if a.is_transform() {
-                        if !matches!(a, NodeAction::XLink { .. }) {
-                            self.transform_stack.pop();
-                        }
-                    } else {
-                        frame.next_branch();
-                    }
+                if let Some(frame) = self.execution_stack.last_mut()
+                    && !frame.action().is_transform()
+                {
+                    frame.next_branch();
                 }
             }
 

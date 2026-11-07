@@ -357,7 +357,7 @@ impl Frame {
                     unreachable!()
                 };
 
-                Ok(if *copied {
+                Ok(if !*copied {
                     let target_index =
                         self.source
                             .tree()
@@ -385,6 +385,7 @@ impl Frame {
 
                 loop {
                     if self.child >= children.len() {
+                        transform_stack.pop();
                         return Ok(Eval::TransformFinished);
                     }
 
