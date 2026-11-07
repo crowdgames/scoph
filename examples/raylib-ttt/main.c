@@ -37,7 +37,6 @@ void on_player_choice() {
 }
 
 void do_player_choice(uint32_t x, uint32_t y) {
-  printf("Trying to click\n");
   for (int rewrite_index = 0;
        rewrite_index < scoph_choices_count(player_choices); ++rewrite_index) {
     for (int match_index = 0;
@@ -82,6 +81,7 @@ int main() {
   const char *junk; // we know what the game is so we don't care
   TRY(scoph_intrp_startup(ttt, &junk, &junk))
 
+  bool winner = false;
   while (!WindowShouldClose()) {
     ScophIntrpResult res;
     TRY(scoph_intrp_step(ttt, &res))
@@ -89,6 +89,8 @@ int main() {
     if (res == WaitingForChoice && turn == NONE) {
       TRY(scoph_intrp_check_choices(ttt, &player_choices));
       on_player_choice();
+    } else if (res == Finished) {
+      winner = true;
     }
 
     Vector2 mp = GetMousePosition();
@@ -99,8 +101,11 @@ int main() {
         (int)((mp.y - board_rect.y) / CELL_SIZE),
     };
 
-    if (turn != NONE && hover_board &&
-        IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+    ScophOutcome outcome;
+    if (winner) {
+      TRY(scoph_get_outcome(ttt, &outcome));
+    } else if (turn != NONE && hover_board &&
+               IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
       do_player_choice((uint32_t)grid_pos.x, (uint32_t)grid_pos.y);
     }
 
@@ -153,6 +158,20 @@ int main() {
         TRY(scoph_get_board_cell(ttt, "main", &content, x, y))
         draw_move(content, x, y);
       }
+    }
+
+    if (winner) {
+      Color color = BROWN;
+
+      if (outcome.outcome != Tie) {
+        if (strcmp(outcome.player_id, "X") == 0) {
+          color = BLUE;
+        } else if (strcmp(outcome.player_id, "O") == 0) {
+          color =  RED;
+        }
+      }
+
+      DrawRectangleLinesEx(board_rect, 15.0, color);
     }
     EndDrawing();
   }
