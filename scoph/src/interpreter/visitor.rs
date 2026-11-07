@@ -5,7 +5,7 @@ use petgraph::graph::NodeIndex;
 use crate::{
     common::{PlayerId, TRRBTPattern},
     interpreter::{
-        stack::{ExecutionFrame, PlayerChoices},
+        stack::{Frame, PlayerChoices},
         transforms::Transform,
     },
 };
@@ -30,6 +30,14 @@ impl Capabilities for Bare {}
 pub struct ViewBoardOnly;
 impl Capabilities for ViewBoardOnly {
     fn can_view_board() -> bool {
+        true
+    }
+}
+
+#[derive(Default)]
+pub struct StackTraceOnly;
+impl Capabilities for StackTraceOnly {
+    fn can_stack_trace() -> bool {
         true
     }
 }
@@ -76,9 +84,9 @@ pub trait Visitor {
     /// Prints out the current call stack. By default prints to stdout.
     fn stack_trace(
         &mut self,
-        call_stack: &[ExecutionFrame],
+        call_stack: &[Frame],
         transform_stack: &[Transform],
-        passed_frames: &[ExecutionFrame],
+        passed_frames: &[Frame],
     ) {
         println!("- - - =====ES===== - - -");
         for frame in call_stack {
@@ -131,11 +139,12 @@ impl Visitor for Dummy {
 
     fn stack_trace(
         &mut self,
-        _call_stack: &[ExecutionFrame],
+        _call_stack: &[Frame],
         _transform_stack: &[Transform],
-        _passed_frames: &[ExecutionFrame],
+        _passed_frames: &[Frame],
     ) {
     }
 
     fn present_choices(&mut self, _player_id: &PlayerId, _choices: &PlayerChoices) {}
 }
+

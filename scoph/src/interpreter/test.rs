@@ -9,7 +9,7 @@ use crate::{
     common::toodee_pattern,
     interpreter::{
         transforms::Transform,
-        visitor::{Bare, Dummy},
+        visitor::{Bare, Dummy, Printer, StackTraceOnly},
     },
 };
 use anyhow::Result;
@@ -20,7 +20,7 @@ struct Comparer {
     expected_name: String,
     expected_description: String,
     board_states: Vec<TRRBTPattern>,
-    current_stack: (Vec<ExecutionFrame>, Vec<Transform>, Vec<ExecutionFrame>),
+    current_stack: (Vec<Frame>, Vec<Transform>, Vec<Frame>),
 }
 
 impl Visitor for Comparer {
@@ -38,9 +38,9 @@ impl Visitor for Comparer {
 
     fn stack_trace(
         &mut self,
-        call_stack: &[ExecutionFrame],
+        call_stack: &[Frame],
         transform_stack: &[Transform],
-        passed_frames: &[ExecutionFrame],
+        passed_frames: &[Frame],
     ) {
         self.current_stack = (
             call_stack.to_vec(),
@@ -796,10 +796,10 @@ fn test_x_spin() -> Result<()> {
 
 #[test]
 fn test_win_with_only_transforms() -> Result<()> {
-    const GAME: &str = r#"{"name":"rotate-all-test (from template)","desc":"","tree":{"type":"order","children":[{"type":"set-board","comment":"","nid":"","pattern":{"main":[["C",".","."],["B","F","."],["A","E","I"],[".","D","H"],[".",".","G"]]}},{"type":"win","comment":"","nid":"","children":[{"type":"x-ident","comment":"","nid":"rotations","children":[{"type":"x-spin","comment":"","nid":"gaga","children":[{"type":"match","pattern":{"main":[["A","B","C"],["D","E","F"],["G","H","I"]]}}],"remorig":false}]},{"type":"x-skew","comment":"","nid":"","children":[{"type":"match","pattern":{"main":[["C","F","I"],["B","E","H"],["A","D","G"]]}}],"remorig":false}],"pid":"Jeremy"}],"comment":"","nid":""}}"#;
-
-    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_text(GAME)?);
-    intrp.run_full(&mut Dummy)?;
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
+        "../games/tests/win-with-only-transforms.json",
+    )?);
+    intrp.run::<_, StackTraceOnly>(&mut Printer)?;
 
     assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
     Ok(())

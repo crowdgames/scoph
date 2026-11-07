@@ -6,12 +6,13 @@ mod visitor;
 use std::rc::Rc;
 
 pub use err::IError;
-use stack::ExecutionFrame;
+use stack::Frame;
 pub use stack::Outcome;
 pub use visitor::StackFrameInfo;
 pub use visitor::Visitor;
 
 use crate::common::BehaviorTree;
+use crate::common::NodeAction;
 use petgraph::graph::NodeIndex;
 
 use transforms::TransformStack;
@@ -35,8 +36,8 @@ pub struct Interpreter {
     board: TRRBTPattern,
     started: bool,
     player_choices: Option<(PlayerId, PlayerChoices)>,
-    execution_stack: Vec<ExecutionFrame>,
-    passed_frames: Vec<ExecutionFrame>,
+    execution_stack: Vec<Frame>,
+    passed_frames: Vec<Frame>,
     transform_stack: TransformStack,
     outcome: Option<Outcome>,
 }
@@ -77,7 +78,26 @@ impl Interpreter {
     }
 
     fn push_frame(&mut self, node_index: NodeIndex) {
-        let frame = ExecutionFrame::new(self.tree.clone(), node_index);
+        let frame = Frame::from_source(if !self.transform_stack.is_empty() {
+            if let Some(transformed) = self
+                .transform_stack
+                .apply_transforms(self.tree.get_node_action(node_index).clone())
+            {
+                stack::Source::Transform {
+                    tree: self.tree.clone(),
+                    transformed,
+                    original_index: node_index,
+                }
+            } else {
+                return;
+            }
+        } else {
+            stack::Source::Tree {
+                tree: self.tree.clone(),
+                node_index,
+            }
+        });
+
         self.execution_stack.push(frame);
     }
 
@@ -221,20 +241,16 @@ impl Interpreter {
             Eval::TransformFinished => {
                 assert!(self.passed_frames.is_empty());
                 self.execution_stack.pop();
-                if let Some(frame) = self.execution_stack.last_mut()
-                    // && !frame.action().is_transform()
-                {
-                    if frame.action().is_transform() {
-                        self.transform_stack.pop();
+                if let Some(frame) = self.execution_stack.last_mut() {
+                    let a = frame.action();
+                    if a.is_transform() {
+                        if !matches!(a, NodeAction::XLink { .. }) {
+                            self.transform_stack.pop();
+                        }
                     } else {
                         frame.next_branch();
                     }
                 }
-            }
-
-            Eval::TransformPush(call) => {
-                assert!(self.passed_frames.is_empty());
-                self.execution_stack.push(call);
             }
 
             Eval::End(outcome) => {
