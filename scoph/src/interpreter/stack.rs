@@ -72,6 +72,7 @@ impl<'a> From<&'a Source> for StackState {
             },
             N::SetBoard { .. }
             | N::Rewrite { .. }
+            | N::RewriteAll { .. }
             | N::Match { .. }
             | N::MatchTimes { .. }
             | N::Player { .. } => Self::SingleAction,
@@ -333,6 +334,18 @@ impl Frame {
                     Eval::Finished(false)
                 },
             ),
+
+            N::RewriteAll { lhs, rhs } => {
+                let mut did_rw = false;
+
+                let coords: Vec<_> = board.matches(lhs).collect();
+                for (x, y) in coords {
+                    board.rewrite_at(x, y, rhs)?;
+                    did_rw = true;
+                }
+
+                Ok(Eval::Finished(did_rw))
+            }
 
             N::Match { pattern } => Ok(Eval::Finished(board.matches(pattern).count() > 0)),
 

@@ -691,3 +691,24 @@ fn test_tie_ends_game() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_rewrite_all() -> Result<()> {
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
+        "../games/tests/rewrite-all.json",
+    )?);
+    intrp.run_full(&mut Dummy)?;
+
+    assert_eq!(
+        intrp.board,
+        TRRBTPattern::from([
+            ("main", [["_", "_", "_"], ["_", "_", "_"], ["_", "_", "_"]]),
+            (
+                "other",
+                [["P", "P", "P"], ["P", "P", "P"], ["P", "P", "P"],]
+            )
+        ])
+    );
+
+    Ok(())
+}
