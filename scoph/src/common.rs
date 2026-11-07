@@ -25,6 +25,18 @@ impl PlayerId {
     }
 }
 
+#[cfg(test)]
+mod pid_test {
+    use crate::common::PlayerId;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_swap_chars() {
+        let x: PlayerId = "X".into();
+        assert_eq!(x.swap_chars("X", "Y"), PlayerId::from("Y"));
+    }
+}
+
 impl From<&str> for PlayerId {
     fn from(value: &str) -> Self {
         Self(CString::from_str(value).unwrap())

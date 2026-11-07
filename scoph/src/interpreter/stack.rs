@@ -1,11 +1,7 @@
 use derive_more::Debug;
 use petgraph::graph::NodeIndex;
 use rand::seq::IteratorRandom;
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    rc::Rc,
-};
-use toodee::Coordinate;
+use std::rc::Rc;
 
 use crate::{
     common::{NodeAction, PlayerId, TRRBTPattern},
@@ -18,8 +14,8 @@ use crate::{
 
 pub use crate::common::PlayerChoices;
 
-#[derive(Debug)]
-enum StackState {
+#[derive(Debug, Clone)]
+pub enum StackState {
     LoopUntilAll {
         any_success: bool,
         all_failed: bool,
@@ -38,8 +34,6 @@ enum StackState {
         transforms_list: Vec<Transform>,
         // transform index to apply
         transform: usize,
-        // help us only keep unique results
-        seen_transforms: HashSet<NodeAction>,
     },
     TransformLink {
         copied: bool,
@@ -59,13 +53,52 @@ impl StackState {
         Self::Transform {
             transforms_list,
             transform: Default::default(),
-            seen_transforms: Default::default(),
         }
     }
 }
 
-#[derive(Debug)]
-enum Source {
+impl<'a> From<&'a Source> for StackState {
+    fn from(value: &'a Source) -> Self {
+        use NodeAction as N;
+        match value.action() {
+            N::LoopUntilAll => Self::LoopUntilAll {
+                any_success: false,
+                all_failed: true,
+            },
+            N::Order => Self::Order { any_success: false },
+            N::None | N::Win { .. } | N::Lose { .. } | N::Draw => Self::None { all_failed: true },
+            N::All => Self::All {
+                all_succeeded: true,
+            },
+            N::SetBoard { .. }
+            | N::Rewrite { .. }
+            | N::Match { .. }
+            | N::MatchTimes { .. }
+            | N::Player { .. } => Self::SingleAction,
+            &N::XSkew { remorig } => Self::make_transform(remorig, [Transform::Skew]),
+            &N::XRotate { remorig } => Self::make_transform(remorig, [Transform::Rotate90]),
+            &N::XSpin { remorig } => Self::make_transform(
+                remorig,
+                [
+                    Transform::Rotate90,
+                    Transform::Rotate180,
+                    Transform::Rotate270,
+                ],
+            ),
+            N::XIdent => Self::make_transform(true, [Transform::Ident]),
+            N::XLink { .. } => Self::TransformLink { copied: false },
+            N::XSwap { what, with } => {
+                Self::make_transform(true, [Transform::SwapOnly(what.clone(), with.clone())])
+            }
+            a => {
+                todo!("No StackState for {a:?} yet");
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Source {
     // node action from a real node in the tree
     Tree {
         #[debug(skip)]
@@ -117,8 +150,8 @@ impl Source {
 }
 
 /// A frame that lives on the execution stack
-#[derive(Debug)]
-pub struct ExecutionFrame {
+#[derive(Debug, Clone)]
+pub struct Frame {
     source: Source,
     child: usize,
     state: StackState,
@@ -143,59 +176,13 @@ pub enum Eval {
         pid: PlayerId,
         matches: PlayerChoices,
     },
-
-    // special evals for transforms
-    /// Push a transformed node action as an executable frame on the stack
-    TransformPush(ExecutionFrame),
     TransformFinished,
     End(Outcome),
 }
 
-impl ExecutionFrame {
-    pub fn new(tree: Rc<BehaviorTree>, node_index: NodeIndex) -> Self {
-        Self::from_source(Source::Tree { tree, node_index })
-    }
-
-    fn from_source(source: Source) -> Self {
-        use NodeAction as N;
-        let na = source.action();
-        let state = match na {
-            N::LoopUntilAll => StackState::LoopUntilAll {
-                any_success: false,
-                all_failed: true,
-            },
-            N::Order => StackState::Order { any_success: false },
-            N::None | N::Win { .. } | N::Lose { .. } | N::Draw => {
-                StackState::None { all_failed: true }
-            }
-            N::All => StackState::All {
-                all_succeeded: true,
-            },
-            N::SetBoard { .. }
-            | N::Rewrite { .. }
-            | N::Match { .. }
-            | N::MatchTimes { .. }
-            | N::Player { .. } => StackState::SingleAction,
-            &N::XSkew { remorig } => StackState::make_transform(remorig, [Transform::Skew]),
-            &N::XRotate { remorig } => StackState::make_transform(remorig, [Transform::Rotate90]),
-            &N::XSpin { remorig } => StackState::make_transform(
-                remorig,
-                [
-                    Transform::Rotate90,
-                    Transform::Rotate180,
-                    Transform::Rotate270,
-                ],
-            ),
-            N::XIdent => StackState::make_transform(false, [Transform::Ident]),
-            N::XLink { .. } => StackState::TransformLink { copied: false },
-            N::XSwap { what, with } => {
-                StackState::make_transform(false, [Transform::SwapOnly(what.clone(), with.clone())])
-            }
-            a => {
-                todo!("No StackState for {a:?} yet");
-            }
-        };
-
+impl Frame {
+    pub fn from_source(source: Source) -> Self {
+        let state = From::from(&source);
         Self {
             source,
             child: 0,
@@ -353,31 +340,6 @@ impl ExecutionFrame {
                 board.matches(pattern).count() >= *times as usize,
             )),
 
-            // x-link is a transform but it's special, so we have special logic for it
-            N::XLink { target } => {
-                let StackState::TransformLink { ref mut copied } = self.state else {
-                    unreachable!()
-                };
-
-                Ok(if !*copied {
-                    let tree = self.source.tree();
-                    let target_index =
-                        tree.get_node_by_id(target).ok_or_else(|| IError::BadLink {
-                            target: target.to_owned(),
-                        })?;
-                    *copied = true;
-                    let transformed = transform_stack
-                        .apply_transforms(tree.get_node_action(target_index).clone());
-                    Eval::TransformPush(Self::from_source(Source::Transform {
-                        tree,
-                        transformed,
-                        original_index: target_index,
-                    }))
-                } else {
-                    Eval::TransformFinished
-                })
-            }
-
             N::Player { pid } => {
                 let plwr = self.collect_player_rewrites(board, transform_stack)?;
                 Ok(if plwr.is_empty() {
@@ -390,13 +352,32 @@ impl ExecutionFrame {
                 })
             }
 
+            N::XLink { target } => {
+                let StackState::TransformLink { ref mut copied } = self.state else {
+                    unreachable!()
+                };
+
+                Ok(if !*copied {
+                    let target_index =
+                        self.source
+                            .tree()
+                            .get_node_by_id(target)
+                            .ok_or(IError::BadLink {
+                                target: target.clone(),
+                            })?;
+                    *copied = true;
+                    Eval::Push(target_index)
+                } else {
+                    Eval::TransformFinished
+                })
+            }
+
             action if action.is_transform() => {
                 let children: Vec<_> = self.source.children().collect();
 
                 let StackState::Transform {
                     ref transforms_list,
                     ref mut transform,
-                    ref mut seen_transforms,
                 } = self.state
                 else {
                     unreachable!();
@@ -404,30 +385,20 @@ impl ExecutionFrame {
 
                 loop {
                     if self.child >= children.len() {
+                        transform_stack.pop();
                         return Ok(Eval::TransformFinished);
                     }
 
+                    let child_index = children[self.child];
                     if *transform < transforms_list.len() {
                         transform_stack.push(transforms_list[*transform].clone());
                         *transform += 1;
-                        let child_index = children[self.child];
-                        let tree = self.source.tree();
-                        let child_node = tree.get_node_action(child_index);
-                        if !child_node.transformable() {
-                            return Ok(Eval::Push(child_index));
-                        }
-                        let transformed = transform_stack.apply_transforms(child_node.clone());
-                        transform_stack.pop();
-                        if !seen_transforms.contains(&transformed) {
-                            seen_transforms.insert(transformed.clone());
-                            return Ok(Eval::TransformPush(Self::from_source(Source::Transform {
-                                tree,
-                                transformed,
-                                original_index: child_index,
-                            })));
-                        }
+
+                        return Ok(Eval::Push(child_index));
                     } else {
+                        // get rid of our old transform and advance to the new one
                         *transform = 0;
+                        transform_stack.pop();
                         self.child += 1;
                     }
                 }
@@ -444,52 +415,80 @@ impl ExecutionFrame {
     ) -> Result<PlayerChoices, IError> {
         use NodeAction as N;
         let mut matches = PlayerChoices::default();
+        let tree = self.source.tree();
+        let mut virtual_stack = vec![];
         for child in self.source.children() {
-            let tree = self.source.tree();
-            match tree.get_node_action(child) {
-                N::Rewrite { lhs, rhs } => {
-                    matches.insert((lhs.clone(), rhs.clone()), board.matches(lhs).collect());
-                }
-                action if action.is_transform() => {
-                    let mut virtual_stack = vec![];
-                    let virtual_frame = Self::from_source(Source::Tree {
-                        tree,
-                        node_index: child,
-                    });
-                    virtual_stack.push(virtual_frame);
-                    while let Some(vf) = virtual_stack.last_mut() {
-                        match vf.action() {
-                            N::Rewrite { lhs, rhs } => {
-                                matches.insert(
-                                    (lhs.clone(), rhs.clone()),
-                                    board.matches(lhs).collect(),
-                                );
-                                virtual_stack.pop();
-                            }
+            let checked_action = tree.get_node_action(child);
 
-                            action if action.is_transform() => {
-                                match vf.evaluate(board, transform_stack)? {
-                                    Eval::TransformPush(new_vf) => {
-                                        virtual_stack.push(new_vf);
+            loop {
+                match checked_action {
+                    action if matches!(action, N::Rewrite { .. }) => {
+                        let Some(NodeAction::Rewrite { lhs, rhs }) =
+                            transform_stack.apply_transforms(action.clone())
+                        else {
+                            break;
+                        };
+                        matches.insert((lhs.clone(), rhs.clone()), board.matches(&lhs).collect());
+                        virtual_stack.clear();
+                        break;
+                    }
+                    action if action.is_transform() => {
+                        if virtual_stack.is_empty() {
+                            let transformed = transform_stack
+                                .apply_transforms(tree.get_node_action(child).clone())
+                                .unwrap();
+                            virtual_stack.push(Self::from_source(Source::Transform {
+                                tree: tree.clone(),
+                                transformed,
+                                original_index: child,
+                            }));
+                        }
+
+                        if let Some(top) = virtual_stack.last_mut() {
+                            match top.evaluate(board, transform_stack)? {
+                                Eval::Push(node_index) => {
+                                    let Some(transformed) = transform_stack
+                                        .apply_transforms(tree.get_node_action(node_index).clone())
+                                    else {
+                                        break;
+                                    };
+
+                                    if let NodeAction::Rewrite { lhs, rhs } = &transformed {
+                                        matches.insert(
+                                            (lhs.clone(), rhs.clone()),
+                                            board.matches(lhs).collect(),
+                                        );
+                                        break;
+                                    } else if !transformed.is_transform() {
+                                        return Err(IError::BadPlayerChild(
+                                            node_index,
+                                            transformed,
+                                        ));
                                     }
-                                    Eval::TransformFinished => {
-                                        virtual_stack.pop();
-                                    }
-                                    Eval::Push(node_index) => {
-                                        virtual_stack
-                                            .push(Self::new(self.source.tree(), node_index));
-                                    }
-                                    e => unreachable!("Non transform eval result: {e:?}"),
+
+                                    let frame = Self::from_source(Source::Transform {
+                                        tree: tree.clone(),
+                                        transformed,
+                                        original_index: node_index,
+                                    });
+
+                                    virtual_stack.push(frame);
                                 }
+                                Eval::TransformFinished => {
+                                    virtual_stack.pop();
+                                }
+                                e => unreachable!(
+                                    "Non-transform eval result: {e:?}, stack top was {:?}",
+                                    top
+                                ),
                             }
-
-                            a => return Err(IError::BadPlayerChild(child, a.clone())),
                         }
                     }
+                    a => return Err(IError::BadPlayerChild(child, a.clone())),
                 }
-                a => return Err(IError::BadPlayerChild(child, a.clone())),
             }
         }
+
         Ok(matches)
     }
 
@@ -555,5 +554,13 @@ impl ExecutionFrame {
 
     pub fn info(&self) -> StackFrameInfo {
         todo!("I changed how calls are source so forgive me my poor tests")
+    }
+
+    pub fn child(&self) -> usize {
+        self.child
+    }
+
+    pub fn state(&self) -> &StackState {
+        &self.state
     }
 }

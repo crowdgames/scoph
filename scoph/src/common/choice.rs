@@ -16,7 +16,7 @@ pub struct PlayerChoices(OrderMap<Rewrite, MatchCoords>);
 impl PlayerChoices {
     /// Inserts a rewrite and list of coordinates. Will not be inserted if coords is empty.
     pub fn insert(&mut self, rw: Rewrite, coords: MatchCoords) {
-        if !coords.is_empty() {
+        if !coords.is_empty() && !self.0.contains_key(&rw) {
             self.0.insert(rw, coords);
         }
     }

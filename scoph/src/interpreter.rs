@@ -6,13 +6,13 @@ mod visitor;
 use std::rc::Rc;
 
 pub use err::IError;
-use stack::ExecutionFrame;
+use stack::Frame;
 pub use stack::Outcome;
-use toodee::Coordinate;
 pub use visitor::StackFrameInfo;
 pub use visitor::Visitor;
 
 use crate::common::BehaviorTree;
+use crate::common::NodeAction;
 use petgraph::graph::NodeIndex;
 
 use transforms::TransformStack;
@@ -36,8 +36,8 @@ pub struct Interpreter {
     board: TRRBTPattern,
     started: bool,
     player_choices: Option<(PlayerId, PlayerChoices)>,
-    execution_stack: Vec<ExecutionFrame>,
-    passed_frames: Vec<ExecutionFrame>,
+    execution_stack: Vec<Frame>,
+    passed_frames: Vec<Frame>,
     transform_stack: TransformStack,
     outcome: Option<Outcome>,
 }
@@ -78,7 +78,26 @@ impl Interpreter {
     }
 
     fn push_frame(&mut self, node_index: NodeIndex) {
-        let frame = ExecutionFrame::new(self.tree.clone(), node_index);
+        let frame = Frame::from_source(if !self.transform_stack.is_empty() {
+            if let Some(transformed) = self
+                .transform_stack
+                .apply_transforms(self.tree.get_node_action(node_index).clone())
+            {
+                stack::Source::Transform {
+                    tree: self.tree.clone(),
+                    transformed,
+                    original_index: node_index,
+                }
+            } else {
+                return;
+            }
+        } else {
+            stack::Source::Tree {
+                tree: self.tree.clone(),
+                node_index,
+            }
+        });
+
         self.execution_stack.push(frame);
     }
 
@@ -131,9 +150,7 @@ impl Interpreter {
         let (rhs, (x, y)) = choices
             .get_index(rewrite_index)
             .map(|((_, rhs), coords)| (rhs, coords[match_index]))
-            .ok_or_else(|| {
-                IError::BadChoice
-            })?;
+            .ok_or_else(|| IError::BadChoice)?;
 
         self.board.rewrite_at(x, y, rhs)?;
 
@@ -231,11 +248,6 @@ impl Interpreter {
                 }
             }
 
-            Eval::TransformPush(call) => {
-                assert!(self.passed_frames.is_empty());
-                self.execution_stack.push(call);
-            }
-
             Eval::End(outcome) => {
                 self.execution_stack.clear();
                 self.passed_frames.clear();
@@ -274,6 +286,14 @@ impl Interpreter {
 
             if C::can_view_board() {
                 visitor.view_board(&self.board);
+            }
+
+            if C::can_stack_trace() {
+                visitor.stack_trace(
+                    &self.execution_stack,
+                    self.transform_stack.as_slice(),
+                    &self.passed_frames,
+                );
             }
         }
         Ok(())

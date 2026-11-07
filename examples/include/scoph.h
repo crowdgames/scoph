@@ -104,12 +104,12 @@ typedef enum ScophOutcomeType {
 
 typedef struct Pattern Pattern;
 
-typedef struct ScophIntrp ScophIntrp;
-
 /**
- * Represents the set of choices that the interpreter is waiting for the player to pick
+ * An ordered map of [Rewrite]'s to lists of coordinates where they matched on the board.
  */
-typedef struct ScophPlayerChoices ScophPlayerChoices;
+typedef struct PlayerChoices PlayerChoices;
+
+typedef struct ScophIntrp ScophIntrp;
 
 typedef struct ScophOutcome {
   enum ScophOutcomeType outcome;
@@ -118,6 +118,14 @@ typedef struct ScophOutcome {
    */
   const char *player_id;
 } ScophOutcome;
+
+/**
+ * Represents the set of choices that the interpreter is waiting for the player to pick
+ */
+typedef struct ScophPlayerChoices {
+  const char *player_id;
+  const struct PlayerChoices *choices;
+} ScophPlayerChoices;
 
 /**
  * Reads a TRRBT json file and constructs an interpreter. The caller is responsible for freeing the
@@ -194,14 +202,14 @@ unsigned int scoph_choices_count(struct ScophPlayerChoices choices);
 /**
  * Get the count of matches of the left-hand side of the rewrite at the given index.
  */
-unsigned int scoph_choices_match_count(struct ScophPlayerChoices choices,
+unsigned int scoph_choices_match_count(const struct PlayerChoices *choices,
                                        unsigned int rewrite_index);
 
 /**
  * Accesses the lhs and rhs of a rewrite in a set of player choices. Will panic if the index is
  * invalid. See [scoph_choices_count].
  */
-void scoph_choices_rewrites(struct ScophPlayerChoices choices,
+void scoph_choices_rewrites(const struct PlayerChoices *choices,
                             unsigned int rewrite_index,
                             struct Pattern *lhs,
                             struct Pattern *rhs);
@@ -209,7 +217,7 @@ void scoph_choices_rewrites(struct ScophPlayerChoices choices,
 /**
  * Get the coordinates at the specified index of the specified rewrite
  */
-void scoph_choices_coords(struct ScophPlayerChoices choices,
+void scoph_choices_coords(const struct PlayerChoices *choices,
                           unsigned int rewrite_index,
                           unsigned int match_index,
                           unsigned int *x,
@@ -218,8 +226,6 @@ void scoph_choices_coords(struct ScophPlayerChoices choices,
 /**
  * Get the ID of the player associated with these choices
  */
-const char *scoph_choices_player_id(struct ScophPlayerChoices choices);
-
 enum ScophError scoph_intrp_player_choose(struct ScophIntrp *intrp,
                                           unsigned int rewrite_index,
                                           unsigned int match_index);

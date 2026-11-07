@@ -1,4 +1,6 @@
-use crate::common::{NodeAction, PlayerId, TRRBTPattern};
+use std::{collections::HashSet, rc::Rc};
+
+use crate::common::{BehaviorTree, NodeAction, PlayerId, TRRBTPattern};
 
 #[derive(Debug, Clone)]
 pub enum Transform {
@@ -8,6 +10,7 @@ pub enum Transform {
     Rotate270,
     Skew,
     SwapOnly(String, String),
+    Link(Rc<BehaviorTree>, String),
 }
 
 fn pattern_transform(
@@ -83,6 +86,7 @@ fn chars_transform(
 pub enum TError {
     Patternless,
     Charless,
+    BadLink,
 }
 
 impl Transform {
@@ -100,28 +104,54 @@ impl Transform {
                 |pid| pid.swap_chars(what, with),
                 |pattern| pattern.swap_chars(what, with),
             ),
+            Self::Link(tree, target_id) => {
+                let target_index = tree.get_node_by_id(target_id).ok_or(TError::BadLink)?;
+                Ok(tree.get_node_action(target_index).clone())
+            }
         }
     }
 }
 
 /// Responsible for taking popped nodes and creating transforms
 #[derive(Debug, Default)]
-pub struct TransformStack(Vec<Transform>);
+pub struct TransformStack {
+    applications: Vec<Transform>,
+    seen: HashSet<NodeAction>,
+}
 
 impl TransformStack {
     pub fn push(&mut self, t: Transform) {
-        self.0.push(t);
+        self.applications.push(t);
     }
 
     pub fn pop(&mut self) {
-        self.0.pop();
+        if !self.seen.is_empty() {
+            self.seen.clear();
+        }
+        self.applications.pop();
     }
 
-    pub fn apply_transforms(&self, na: NodeAction) -> NodeAction {
-        self.0
+    pub fn apply_transforms(&mut self, na: NodeAction) -> Option<NodeAction> {
+        let result = self
+            .applications
             .iter()
             .rev()
-            .fold(na, |acc, p| p.apply(&acc).unwrap_or(acc))
+            .fold(na, |acc, p| p.apply(&acc).unwrap_or(acc));
+
+        if !self.seen.contains(&result) {
+            self.seen.insert(result.clone());
+            Some(result)
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn as_slice(&self) -> &[Transform] {
+        self.applications.as_slice()
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.applications.is_empty()
     }
 }
 
@@ -130,26 +160,31 @@ mod test {
     use crate::common::{TRRBTPattern, toodee_pattern};
 
     use super::*;
-    use Transform as T;
     use pretty_assertions::assert_eq;
 
-    fn three_x() -> TRRBTPattern {
-        TRRBTPattern::from([("main", toodee_pattern(3, 1, ["X", "X", "X"]))])
-    }
-
-    fn match3x() -> NodeAction {
-        NodeAction::Match { pattern: three_x() }
-    }
-
     #[test]
-    fn test_pattern_transform() {
-        let m = match3x();
-        let result = TransformStack(vec![T::Ident, T::Rotate90, T::Skew]);
+    fn test_ttt_o_tree() {
+        let mut stack = TransformStack {
+            applications: vec![
+                Transform::SwapOnly("X".to_string(), "O".to_string()),
+                Transform::Ident,
+            ],
+            seen: Default::default(),
+        };
+
+        let orw = NodeAction::Rewrite {
+            lhs: TRRBTPattern::from([("main", [["O"]])]),
+            rhs: TRRBTPattern::from([("main", [["_"]])]),
+        };
+
         assert_eq!(
-            result.apply_transforms(m),
-            NodeAction::Match {
-                pattern: three_x().skewed().rotated_90()
-            }
+            stack.apply_transforms(NodeAction::Rewrite {
+                lhs: TRRBTPattern::from([("main", [["X"]])]),
+                rhs: TRRBTPattern::from([("main", [["_"]])])
+            }),
+            Some(orw.clone())
         );
+
+        assert_eq!(&stack.seen, &HashSet::from([orw]));
     }
 }
