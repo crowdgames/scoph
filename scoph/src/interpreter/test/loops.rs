@@ -712,3 +712,18 @@ fn test_rewrite_all() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_layer_template() -> Result<()> {
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
+        "../games/tests/layer-template.json",
+    )?);
+    intrp.run_full(&mut Dummy)?;
+
+    assert_eq!(
+        intrp.board,
+        TRRBTPattern::from([("main", [["_"; 5]; 5]), ("foo", [["O"; 5]; 5])])
+    );
+
+    Ok(())
+}

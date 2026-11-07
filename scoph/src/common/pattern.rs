@@ -230,6 +230,13 @@ impl TRRBTPattern {
                 .collect(),
         )
     }
+
+    pub(crate) fn set_layer(&mut self, layer: &str, width: usize, height: usize, data: Vec<CString>) {
+        self.0
+            .entry(layer.to_string())
+            .and_modify(|layer_data| layer_data.clone_from_slice(&data))
+            .or_insert(TooDee::from_vec(width, height, data));
+    }
 }
 
 impl ToString for TRRBTPattern {

@@ -1,7 +1,7 @@
 use derive_more::Debug;
 use petgraph::graph::NodeIndex;
 use rand::seq::IteratorRandom;
-use std::rc::Rc;
+use std::{ffi::CString, rc::Rc, str::FromStr};
 
 use crate::{
     common::{NodeAction, PlayerId, TRRBTPattern},
@@ -73,6 +73,7 @@ impl<'a> From<&'a Source> for StackState {
             N::SetBoard { .. }
             | N::Rewrite { .. }
             | N::RewriteAll { .. }
+            | N::LayerTemplate { .. }
             | N::Match { .. }
             | N::MatchTimes { .. }
             | N::Player { .. } => Self::SingleAction,
@@ -345,6 +346,17 @@ impl Frame {
                 }
 
                 Ok(Eval::Finished(did_rw))
+            }
+
+            N::LayerTemplate { layer, with } => {
+                let (width, height) = board.pattern_size();
+                board.set_layer(
+                    layer,
+                    width,
+                    height,
+                    vec![CString::from_str(with).unwrap(); width * height],
+                );
+                Ok(Eval::Finished(true))
             }
 
             N::Match { pattern } => Ok(Eval::Finished(board.matches(pattern).count() > 0)),
