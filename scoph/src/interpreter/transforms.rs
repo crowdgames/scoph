@@ -160,14 +160,31 @@ mod test {
     use crate::common::{TRRBTPattern, toodee_pattern};
 
     use super::*;
-    use Transform as T;
     use pretty_assertions::assert_eq;
 
-    fn three_x() -> TRRBTPattern {
-        TRRBTPattern::from([("main", toodee_pattern(3, 1, ["X", "X", "X"]))])
-    }
+    #[test]
+    fn test_ttt_o_tree() {
+        let mut stack = TransformStack {
+            applications: vec![
+                Transform::SwapOnly("X".to_string(), "O".to_string()),
+                Transform::Ident,
+            ],
+            seen: Default::default(),
+        };
 
-    fn match3x() -> NodeAction {
-        NodeAction::Match { pattern: three_x() }
+        let orw = NodeAction::Rewrite {
+            lhs: TRRBTPattern::from([("main", [["O"]])]),
+            rhs: TRRBTPattern::from([("main", [["_"]])]),
+        };
+
+        assert_eq!(
+            stack.apply_transforms(NodeAction::Rewrite {
+                lhs: TRRBTPattern::from([("main", [["X"]])]),
+                rhs: TRRBTPattern::from([("main", [["_"]])])
+            }),
+            Some(orw.clone())
+        );
+
+        assert_eq!(&stack.seen, &HashSet::from([orw]));
     }
 }

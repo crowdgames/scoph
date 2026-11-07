@@ -1,7 +1,7 @@
 use derive_more::Debug;
 use petgraph::graph::NodeIndex;
 use rand::seq::IteratorRandom;
-use std::{collections::HashSet, rc::Rc};
+use std::rc::Rc;
 
 use crate::{
     common::{NodeAction, PlayerId, TRRBTPattern},
@@ -413,7 +413,83 @@ impl Frame {
         board: &mut TRRBTPattern,
         transform_stack: &mut TransformStack,
     ) -> Result<PlayerChoices, IError> {
-        todo!()
+        use NodeAction as N;
+        let mut matches = PlayerChoices::default();
+        let tree = self.source.tree();
+        let mut virtual_stack = vec![];
+        for child in self.source.children() {
+            let checked_action = tree.get_node_action(child);
+
+            loop {
+                match checked_action {
+                    action if matches!(action, N::Rewrite { .. }) => {
+                        let Some(NodeAction::Rewrite { lhs, rhs }) =
+                            transform_stack.apply_transforms(action.clone())
+                        else {
+                            break;
+                        };
+                        matches.insert((lhs.clone(), rhs.clone()), board.matches(&lhs).collect());
+                        virtual_stack.clear();
+                        break;
+                    }
+                    action if action.is_transform() => {
+                        if virtual_stack.is_empty() {
+                            let transformed = transform_stack
+                                .apply_transforms(tree.get_node_action(child).clone())
+                                .unwrap();
+                            virtual_stack.push(Self::from_source(Source::Transform {
+                                tree: tree.clone(),
+                                transformed,
+                                original_index: child,
+                            }));
+                        }
+
+                        if let Some(top) = virtual_stack.last_mut() {
+                            match top.evaluate(board, transform_stack)? {
+                                Eval::Push(node_index) => {
+                                    let Some(transformed) = transform_stack
+                                        .apply_transforms(tree.get_node_action(node_index).clone())
+                                    else {
+                                        break;
+                                    };
+
+                                    if let NodeAction::Rewrite { lhs, rhs } = &transformed {
+                                        matches.insert(
+                                            (lhs.clone(), rhs.clone()),
+                                            board.matches(lhs).collect(),
+                                        );
+                                        break;
+                                    } else if !transformed.is_transform() {
+                                        return Err(IError::BadPlayerChild(
+                                            node_index,
+                                            transformed,
+                                        ));
+                                    }
+
+                                    let frame = Self::from_source(Source::Transform {
+                                        tree: tree.clone(),
+                                        transformed,
+                                        original_index: node_index,
+                                    });
+
+                                    virtual_stack.push(frame);
+                                }
+                                Eval::TransformFinished => {
+                                    virtual_stack.pop();
+                                }
+                                e => unreachable!(
+                                    "Non-transform eval result: {e:?}, stack top was {:?}",
+                                    top
+                                ),
+                            }
+                        }
+                    }
+                    a => return Err(IError::BadPlayerChild(child, a.clone())),
+                }
+            }
+        }
+
+        Ok(matches)
     }
 
     pub fn child_finished(&mut self, succeeded: bool, untransformed: bool) -> Option<bool> {
