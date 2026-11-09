@@ -727,3 +727,83 @@ fn test_layer_template() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_random_try_success() -> Result<()> {
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
+        "../games/tests/random-try-success.json",
+    )?);
+
+    intrp.run_full(&mut Dummy)?;
+
+    let o_cell = TRRBTPattern::from([("main", [["O"]])]);
+    let y_cell = TRRBTPattern::from([("main", [["Y"]])]);
+    let z_cell = TRRBTPattern::from([("main", [["Z"]])]);
+
+    assert!(
+        intrp.board.matches(&o_cell).count() == 1
+            || intrp.board.matches(&y_cell).count() == 1
+            || intrp.board.matches(&z_cell).count() == 1,
+        "Current board: {:#?}",
+        intrp.board
+    );
+    assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
+
+    Ok(())
+}
+
+#[test]
+fn test_random_try_failure() -> Result<()> {
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
+        "../games/tests/random-try-failure.json",
+    )?);
+
+    intrp.run_full(&mut Dummy)?;
+
+    let o_cell = TRRBTPattern::from([("main", [["O"]])]);
+    let y_cell = TRRBTPattern::from([("main", [["Y"]])]);
+    let z_cell = TRRBTPattern::from([("main", [["Z"]])]);
+
+    assert!(
+        intrp.board.matches(&o_cell).count() == 0
+            || intrp.board.matches(&y_cell).count() == 0
+            || intrp.board.matches(&z_cell).count() == 0,
+        "Current board: {:#?}",
+        intrp.board
+    );
+    assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
+
+    Ok(())
+}
+
+#[test]
+fn test_loop_times_success() -> Result<()> {
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
+        "../games/tests/loop-times-success.json",
+    )?);
+
+    let empty_cell = TRRBTPattern::filled("_", 1, 1);
+    intrp.run_full(&mut Dummy)?;
+
+    assert_eq!(intrp.board.matches(&empty_cell).count(), 5);
+
+    assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
+
+    Ok(())
+}
+
+#[test]
+fn test_loop_times_failure() -> Result<()> {
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
+        "../games/tests/loop-times-failure.json",
+    )?);
+
+    let empty_cell = TRRBTPattern::filled("_", 1, 1);
+    intrp.run_full(&mut Dummy)?;
+
+    assert_eq!(intrp.board.matches(&empty_cell).count(), 0);
+
+    assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
+
+    Ok(())
+}

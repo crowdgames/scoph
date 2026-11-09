@@ -240,6 +240,7 @@ impl Interpreter {
 
             Eval::TransformFinished => {
                 assert!(self.passed_frames.is_empty());
+                self.transform_stack.reset_seen();
                 self.execution_stack.pop();
                 if let Some(frame) = self.execution_stack.last_mut()
                     && !frame.action().is_transform()

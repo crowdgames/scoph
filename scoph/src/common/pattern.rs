@@ -26,14 +26,6 @@ pub fn toodee_pattern<'a, const N: usize>(
     TooDee::from_vec(width, height, v)
 }
 
-/// Error enum signifying that there was no layer with the given name in either the destination
-/// pattern or from the source pattern
-#[derive(Debug)]
-pub enum MissingLayer {
-    Dest(String),
-    Src(String),
-}
-
 /// A key-value structure of layer names ([CString]s) and 2D arrays
 #[derive(Debug, Default, Hash, Clone, Serialize, PartialEq, Eq)]
 pub struct TRRBTPattern(LayersAndPatterns);
@@ -231,7 +223,13 @@ impl TRRBTPattern {
         )
     }
 
-    pub(crate) fn set_layer(&mut self, layer: &str, width: usize, height: usize, data: Vec<CString>) {
+    pub(crate) fn set_layer(
+        &mut self,
+        layer: &str,
+        width: usize,
+        height: usize,
+        data: Vec<CString>,
+    ) {
         self.0
             .entry(layer.to_string())
             .and_modify(|layer_data| layer_data.clone_from_slice(&data))

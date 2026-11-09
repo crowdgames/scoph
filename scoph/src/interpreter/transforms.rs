@@ -115,6 +115,7 @@ impl Transform {
 /// Responsible for taking popped nodes and creating transforms
 #[derive(Debug, Default)]
 pub struct TransformStack {
+    // NOTE: could potentially optimize this by using Rc's in a StackState's transform list
     applications: Vec<Transform>,
     seen: HashSet<NodeAction>,
 }
@@ -124,10 +125,11 @@ impl TransformStack {
         self.applications.push(t);
     }
 
+    pub fn reset_seen(&mut self) {
+        self.seen.clear();
+    }
+
     pub fn pop(&mut self) {
-        if !self.seen.is_empty() {
-            self.seen.clear();
-        }
         self.applications.pop();
     }
 

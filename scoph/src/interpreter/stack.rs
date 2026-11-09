@@ -1,7 +1,7 @@
 use derive_more::Debug;
 use petgraph::graph::NodeIndex;
 use rand::seq::IteratorRandom;
-use std::{ffi::CString, rc::Rc, str::FromStr};
+use std::{collections::HashSet, ffi::CString, rc::Rc, str::FromStr};
 
 use crate::{
     common::{NodeAction, PlayerId, TRRBTPattern},
@@ -20,6 +20,14 @@ pub enum StackState {
         any_success: bool,
         all_failed: bool,
     },
+    LoopTimes {
+        any_success: bool,
+        remaining: u32,
+    },
+    RandomTry {
+        played: HashSet<usize>,
+        all_failed: bool,
+    },
     Order {
         any_success: bool,
     },
@@ -34,6 +42,7 @@ pub enum StackState {
         transforms_list: Vec<Transform>,
         // transform index to apply
         transform: usize,
+        random_attempts: Option<HashSet<usize>>,
     },
     TransformLink {
         copied: bool,
@@ -42,7 +51,7 @@ pub enum StackState {
 }
 
 impl StackState {
-    fn make_transform<const N: usize>(remorig: bool, main: [Transform; N]) -> Self {
+    fn make_transform<const N: usize>(remorig: bool, main: [Transform; N], random: bool) -> Self {
         let mut transforms_list = vec![];
         if !remorig {
             transforms_list.push(Transform::Ident);
@@ -53,6 +62,7 @@ impl StackState {
         Self::Transform {
             transforms_list,
             transform: Default::default(),
+            random_attempts: random.then(HashSet::new),
         }
     }
 }
@@ -63,6 +73,14 @@ impl<'a> From<&'a Source> for StackState {
         match value.action() {
             N::LoopUntilAll => Self::LoopUntilAll {
                 any_success: false,
+                all_failed: true,
+            },
+            N::LoopTimes { times } => Self::LoopTimes {
+                any_success: false,
+                remaining: *times,
+            },
+            N::RandomTry => Self::RandomTry {
+                played: Default::default(),
                 all_failed: true,
             },
             N::Order => Self::Order { any_success: false },
@@ -77,8 +95,8 @@ impl<'a> From<&'a Source> for StackState {
             | N::Match { .. }
             | N::MatchTimes { .. }
             | N::Player { .. } => Self::SingleAction,
-            &N::XSkew { remorig } => Self::make_transform(remorig, [Transform::Skew]),
-            &N::XRotate { remorig } => Self::make_transform(remorig, [Transform::Rotate90]),
+            &N::XSkew { remorig } => Self::make_transform(remorig, [Transform::Skew], false),
+            &N::XRotate { remorig } => Self::make_transform(remorig, [Transform::Rotate90], false),
             &N::XSpin { remorig } => Self::make_transform(
                 remorig,
                 [
@@ -86,12 +104,15 @@ impl<'a> From<&'a Source> for StackState {
                     Transform::Rotate180,
                     Transform::Rotate270,
                 ],
+                false,
             ),
-            N::XIdent => Self::make_transform(true, [Transform::Ident]),
+            N::XIdent => Self::make_transform(true, [Transform::Ident], false),
             N::XLink { .. } => Self::TransformLink { copied: false },
-            N::XSwap { what, with } => {
-                Self::make_transform(true, [Transform::SwapOnly(what.clone(), with.clone())])
-            }
+            N::XSwap { what, with } => Self::make_transform(
+                true,
+                [Transform::SwapOnly(what.clone(), with.clone())],
+                false,
+            ),
             a => {
                 todo!("No StackState for {a:?} yet");
             }
@@ -255,6 +276,52 @@ impl Frame {
                 Ok(Eval::Push(neighbors[child_index]))
             }
 
+            N::LoopTimes { .. } => {
+                let children: Vec<_> = self.source.children().collect();
+                if self.at_end_of_children(&children) {
+                    let StackState::LoopTimes {
+                        any_success,
+                        ref mut remaining,
+                    } = self.state
+                    else {
+                        unreachable!();
+                    };
+
+                    *remaining -= 1;
+                    if *remaining == 0 {
+                        return Ok(Eval::Finished(any_success));
+                    } else {
+                        self.child = 0;
+                    }
+                }
+                Ok(Eval::Push(children[self.child]))
+            }
+
+            N::RandomTry => {
+                let StackState::RandomTry {
+                    ref mut played,
+                    all_failed,
+                } = self.state
+                else {
+                    unreachable!()
+                };
+
+                Ok(if !all_failed {
+                    Eval::Finished(true)
+                } else if let Some((new_played, child_index)) = self
+                    .source
+                    .children()
+                    .enumerate()
+                    .filter(|(child, _)| !played.contains(child))
+                    .choose(&mut rand::rng())
+                {
+                    played.insert(new_played);
+                    Eval::Push(child_index)
+                } else {
+                    Eval::Finished(false)
+                })
+            }
+
             N::None => {
                 let children: Vec<_> = self.source.children().collect();
                 let StackState::None { all_failed } = self.state else {
@@ -403,6 +470,7 @@ impl Frame {
                 let StackState::Transform {
                     ref transforms_list,
                     ref mut transform,
+                    .. // TODO: randomness
                 } = self.state
                 else {
                     unreachable!();
@@ -500,6 +568,7 @@ impl Frame {
                                     virtual_stack.push(frame);
                                 }
                                 Eval::TransformFinished => {
+                                    transform_stack.reset_seen();
                                     virtual_stack.pop();
                                 }
                                 e => unreachable!(
@@ -519,17 +588,29 @@ impl Frame {
 
     pub fn child_finished(&mut self, succeeded: bool, untransformed: bool) -> Option<bool> {
         use StackState as S;
-        if matches!(self.state, S::SingleAction) {
-            return None;
-        }
-
         match self.state {
+            S::SingleAction => return None,
             S::LoopUntilAll {
                 ref mut any_success,
                 ref mut all_failed,
             } => {
                 if succeeded {
                     *any_success = true;
+                    *all_failed = false;
+                }
+            }
+            S::LoopTimes {
+                ref mut any_success,
+                ..
+            } => {
+                if succeeded {
+                    *any_success = true;
+                }
+            }
+            S::RandomTry {
+                ref mut all_failed, ..
+            } => {
+                if succeeded {
                     *all_failed = false;
                 }
             }
@@ -555,7 +636,6 @@ impl Frame {
             S::Transform { .. } | S::TransformLink { .. } => {
                 return Some(succeeded);
             }
-            _ => unreachable!(),
         }
 
         if untransformed {
