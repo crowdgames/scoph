@@ -202,3 +202,146 @@ fn test_swap_only_on_pattern_single_char_to_many_char() {
         )])
     );
 }
+
+#[test]
+fn test_append_rows_too_small() -> Result<()> {
+    let mut pat = TRRBTPattern::from([(
+        "main",
+        [
+            ["X", "X", "X", "X"],
+            ["X", "X", "X", "X"],
+            ["X", "X", "X", "X"],
+        ],
+    )]);
+
+    let smaller_pat = TRRBTPattern::from([("main", [["O", "Y"], ["Q", "Y"]])]);
+    pat.append_rows(&smaller_pat)?;
+    assert_eq!(
+        pat,
+        TRRBTPattern::from([(
+            "main",
+            [
+                ["X", "X", "X", "X"],
+                ["X", "X", "X", "X"],
+                ["X", "X", "X", "X"],
+                ["O", "Y", "O", "Y"],
+                ["Q", "Y", "Q", "Y"],
+            ],
+        )])
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_append_rows_too_big() -> Result<()> {
+    let mut pat = TRRBTPattern::from([(
+        "main",
+        [
+            ["X", "X", "X", "X"],
+            ["X", "X", "X", "X"],
+            ["X", "X", "X", "X"],
+        ],
+    )]);
+
+    let smaller_pat = TRRBTPattern::from([(
+        "main",
+        [
+            ["O", "O", "O", "O", "O", "O"],
+            ["O", "O", "O", "O", "O", "O"],
+            ["O", "O", "O", "O", "O", "O"],
+            ["O", "O", "O", "O", "O", "O"],
+        ],
+    )]);
+    pat.append_rows(&smaller_pat)?;
+    assert_eq!(
+        pat,
+        TRRBTPattern::from([(
+            "main",
+            [
+                ["X", "X", "X", "X"],
+                ["X", "X", "X", "X"],
+                ["X", "X", "X", "X"],
+                ["O", "O", "O", "O"],
+                ["O", "O", "O", "O"],
+                ["O", "O", "O", "O"],
+                ["O", "O", "O", "O"],
+            ],
+        )])
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_append_columns_too_small() -> Result<()> {
+    let mut pat = TRRBTPattern::from([(
+        "main",
+        [
+            ["X", "X", "X", "X"],
+            ["X", "X", "X", "X"],
+            ["X", "X", "X", "X"],
+            ["X", "X", "X", "X"],
+        ],
+    )]);
+
+    let smaller_pat = TRRBTPattern::from([("main", [["O", "Y"], ["Q", "Y"]])]);
+
+    pat.append_columns(&smaller_pat)?;
+
+    assert_eq!(
+        pat,
+        TRRBTPattern::from([(
+            "main",
+            [
+                ["X", "X", "X", "X", "O", "Y"],
+                ["X", "X", "X", "X", "Q", "Y"],
+                ["X", "X", "X", "X", "O", "Y"],
+                ["X", "X", "X", "X", "Q", "Y"],
+            ]
+        )])
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_append_colmuns_too_big() -> Result<()> {
+    let mut pat = TRRBTPattern::from([(
+        "main",
+        [
+            ["X", "X", "X", "X"],
+            ["X", "X", "X", "X"],
+            ["X", "X", "X", "X"],
+            ["X", "X", "X", "X"],
+        ],
+    )]);
+    let bigger_pat = TRRBTPattern::from([(
+        "main",
+        [
+            ["O", "Y"],
+            ["Q", "Y"],
+            ["B", "B"],
+            ["B", "B"],
+            ["B", "B"],
+            ["B", "B"],
+        ],
+    )]);
+
+    pat.append_columns(&bigger_pat)?;
+
+    assert_eq!(
+        pat,
+        TRRBTPattern::from([(
+            "main",
+            [
+                ["X", "X", "X", "X", "O", "Y"],
+                ["X", "X", "X", "X", "Q", "Y"],
+                ["X", "X", "X", "X", "B", "B"],
+                ["X", "X", "X", "X", "B", "B"],
+            ],
+        )])
+    );
+
+    Ok(())
+}

@@ -125,6 +125,63 @@ impl TRRBTPattern {
         Ok(())
     }
 
+    /// Appends the columns of the other pattern to the caller. Will truncate the height of the
+    /// other pattern if needed.
+    pub fn append_columns(&mut self, other: &Self) -> Result<(), IError> {
+        let (_, h) = self.pattern_size();
+        for (layer_name, layer_data) in self.0.iter_mut() {
+            let other_data = other
+                .0
+                .get(layer_name)
+                .ok_or_else(|| IError::MissingLayerOnSrc(layer_name.clone()))?;
+
+            for i in 0..other_data.num_cols() {
+                let mut row_index = 0;
+                let cool = other_data
+                    .col(i)
+                    .take(h)
+                    .pad_using(h, |_| {
+                        let cell = &other_data[(i, row_index)];
+                        row_index = (row_index % other_data.num_rows()) + 1;
+                        cell
+                    })
+                    .cloned();
+                layer_data.push_col(cool);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Appends the rows of the other pattern to the caller. Will truncate the width of the rows on
+    /// the other pattern if needed.
+    pub fn append_rows(&mut self, other: &Self) -> Result<(), IError> {
+        let (w, _) = self.pattern_size();
+        for (layer_name, layer_data) in self.0.iter_mut() {
+            let other_data = other
+                .0
+                .get(layer_name)
+                .ok_or_else(|| IError::MissingLayerOnSrc(layer_name.clone()))?;
+
+            for i in 0..other_data.num_rows() {
+                let mut col_index = 0;
+                layer_data.push_row(
+                    other_data[i]
+                        .iter()
+                        .take(w)
+                        .pad_using(w, |_| {
+                            let cell = &other_data[(col_index, i)];
+                            col_index = (col_index % other_data.num_cols()) + 1;
+                            cell
+                        })
+                        .cloned(),
+                );
+            }
+        }
+
+        Ok(())
+    }
+
     /// Accesses a cell on the grid of the specified layer.
     pub fn get_cell(&self, x: usize, y: usize, layer_name: &str) -> Result<&str, IError> {
         self.0

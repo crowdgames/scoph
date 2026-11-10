@@ -2180,9 +2180,9 @@ checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
 name = "toodee"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac7dddbb71918c441026f9db2cd675c31482a4be8186176fc3712bdef6a2d4ad"
+checksum = "2bb6f46f320566416a4e374d6feedda4a049a3d6cbb61efe2969458112f3977e"
 dependencies = [
  "serde",
 ]

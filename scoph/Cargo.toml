@@ -17,4 +17,4 @@ serde_json = { version = "1.0.151", default-features=false, features = ["alloc"]
 serde_with = "3.23.0"
 strum = { version = "0.28.0", features = ["derive"] }
 thiserror = "2.0.21"
-toodee = "0.6.1"
+toodee = "0.6.2"

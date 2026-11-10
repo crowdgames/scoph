@@ -807,3 +807,111 @@ fn test_loop_times_failure() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_append_rows_too_big() -> Result<()> {
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
+        "../games/tests/append-rows-too-big.json",
+    )?);
+
+    intrp.run_full(&mut Dummy)?;
+
+    assert_eq!(
+        intrp.board,
+        TRRBTPattern::from([(
+            "main",
+            [
+                ["X", "X", "X", "X"],
+                ["X", "X", "X", "X"],
+                ["X", "X", "X", "X"],
+                ["X", "X", "X", "X"],
+                ["O", "Y", "O", "Y"],
+                ["Q", "Y", "Q", "Y"],
+            ]
+        )])
+    );
+
+    assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
+
+    Ok(())
+}
+
+#[test]
+fn test_append_rows_too_small() -> Result<()> {
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
+        "../games/tests/append-rows-too-small.json",
+    )?);
+
+    intrp.run_full(&mut Dummy)?;
+
+    assert_eq!(
+        intrp.board,
+        TRRBTPattern::from([(
+            "main",
+            [
+                ["X", "X", "X", "X"],
+                ["X", "X", "X", "X"],
+                ["X", "X", "X", "X"],
+                ["X", "X", "X", "X"],
+                ["O", "Y", "O", "Y"],
+                ["Q", "Y", "Q", "Y"],
+            ]
+        )])
+    );
+
+    assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
+
+    Ok(())
+}
+
+#[test]
+fn test_append_cols_too_big() -> Result<()> {
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
+        "../games/tests/append-columns-too-big.json",
+    )?);
+
+    intrp.run_full(&mut Dummy)?;
+
+    assert_eq!(
+        intrp.board,
+        TRRBTPattern::from([(
+            "main",
+            [
+                ["X", "X", "X", "X", "O", "Y"],
+                ["X", "X", "X", "X", "Q", "Y"],
+                ["X", "X", "X", "X", "O", "Y"],
+                ["X", "X", "X", "X", "Q", "Y"],
+            ]
+        )])
+    );
+
+    assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
+
+    Ok(())
+}
+
+#[test]
+fn test_append_cols_too_small() -> Result<()> {
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
+        "../games/tests/append-columns-too-small.json",
+    )?);
+
+    intrp.run_full(&mut Dummy)?;
+
+    assert_eq!(
+        intrp.board,
+        TRRBTPattern::from([(
+            "main",
+            [
+                ["X", "X", "X", "X", "O", "Y"],
+                ["X", "X", "X", "X", "Q", "Y"],
+                ["X", "X", "X", "X", "O", "Y"],
+                ["X", "X", "X", "X", "Q", "Y"],
+            ]
+        )])
+    );
+
+    assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
+
+    Ok(())
+}
