@@ -5,16 +5,28 @@ edition = "2024"
 description = "An implementation of the TRRBT language for use across multiple projects"
 
 [dependencies]
-anyhow = "1.0.104"
+anyhow = { version = "1.0.104", default-features = false }
 derive_more = { version = "2.1.1", features = ["debug"] }
-itertools = "0.15.0"
-ordermap = "1.2.2"
-petgraph = { version = "0.8.3", features = ["serde-1"] }
+itertools = { version = "0.15.0", default-features = false, features = ["use_alloc"] }
+ordermap = { version = "1.2.2", default-features = false }
+petgraph = { version = "0.8.3", default-features = false, features = ["graphmap"] }
 pretty_assertions = "1.4.1"
-rand = "0.10.3"
+rand = { version = "0.10.3", default-features = false, features = ["alloc"] }
 serde = { version = "1.0.229", default-features=false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0.151", default-features=false, features = ["alloc"] }
 serde_with = "3.23.0"
 strum = { version = "0.28.0", features = ["derive"] }
 thiserror = "2.0.21"
 toodee = "0.6.2"
+
+[features]
+std = [
+  "anyhow/std",
+  "itertools/use_std",
+  "ordermap/std",
+  "petgraph/std",
+  "rand/default",
+  "serde/std",
+  "serde_json/std",
+]
+default = ["std"]
