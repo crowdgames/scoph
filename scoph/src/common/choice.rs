@@ -3,6 +3,11 @@ use toodee::Coordinate;
 
 use super::TRRBTPattern;
 
+#[cfg(not(feature = "std"))]
+use foldhash::fast::RandomState;
+#[cfg(feature = "std")]
+use std::hash::RandomState;
+
 /// A 2-tuple of patterns. The left-hand side will be searched for on the board, and the right-hand
 /// side is the aforementioned's replacement.
 pub type Rewrite = (TRRBTPattern, TRRBTPattern);
@@ -11,7 +16,7 @@ pub type MatchCoords = Vec<Coordinate>;
 
 /// An ordered map of [Rewrite]'s to lists of coordinates where they matched on the board.
 #[derive(Debug, Default, Eq, PartialEq)]
-pub struct PlayerChoices(OrderMap<Rewrite, MatchCoords>);
+pub struct PlayerChoices(OrderMap<Rewrite, MatchCoords, RandomState>);
 
 impl PlayerChoices {
     /// Inserts a rewrite and list of coordinates. Will not be inserted if coords is empty.
