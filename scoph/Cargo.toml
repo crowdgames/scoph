@@ -6,29 +6,34 @@ description = "An implementation of the TRRBT language for use across multiple p
 
 [dependencies]
 anyhow = { version = "1.0.104", default-features = false }
-derive_more = { version = "2.1.1", features = ["debug"] }
-foldhash = { version = "0.2.0", default-features = false }
+derive_more = { version = "2.1.1", default-features=false, features = ["debug"] }
 itertools = { version = "0.15.0", default-features = false, features = ["use_alloc"] }
 ordermap = { version = "1.2.2", default-features = false }
 petgraph = { version = "0.8.3", default-features = false, features = ["graphmap"] }
-pretty_assertions = "1.4.1"
 rand = { version = "0.10.3", default-features = false, features = ["alloc"] }
 serde = { version = "1.0.229", default-features=false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0.151", default-features=false, features = ["alloc"] }
-serde_with = "3.23.0"
-strum = { version = "0.28.0", features = ["derive"] }
-thiserror = "2.0.21"
+serde_with = { version = "3.23.0", default-features=false, features = ["macros"] }
+strum = { version = "0.28.0", default-features = false, features = ["derive"] }
+thiserror = { version = "2.0.21", default-features = false }
 toodee = "0.6.2"
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"
 
 [features]
 std = [
   "anyhow/std",
+  "derive_more/std",
   "itertools/use_std",
   "ordermap/std",
   "petgraph/std",
   "rand/default",
   "serde/std",
   "serde_json/std",
-  "foldhash/std"
+  "serde_with/std",
+  "strum/std",
+  "thiserror/std"
+
 ]
 default = ["std"]
