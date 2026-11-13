@@ -1,6 +1,6 @@
 use std::ffi::CStr;
 
-use petgraph::graph::NodeIndex;
+use crate::common::NodeIndex;
 
 use crate::{
     common::{PlayerId, TRRBTPattern},

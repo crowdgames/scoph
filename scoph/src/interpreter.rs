@@ -15,7 +15,7 @@ pub use visitor::Visitor;
 
 use crate::common::BehaviorTree;
 use crate::common::NodeAction;
-use petgraph::graph::NodeIndex;
+use crate::common::NodeIndex;
 
 use transforms::TransformStack;
 

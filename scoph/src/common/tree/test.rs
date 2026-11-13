@@ -123,7 +123,7 @@ fn test_complex_finishable_tree_from_text() -> Result<()> {
     let mut i = 0;
     for ni in root_children {
         let na = behavior_tree.get_node_action(ni);
-        assert_eq!(na, &expected_root_children_actions[i]);
+        assert_eq!(na, &expected_root_children_actions[i], "{:#?}", behavior_tree);
 
         match na {
             &NodeAction::SetBoard { .. } => {
@@ -136,7 +136,9 @@ fn test_complex_finishable_tree_from_text() -> Result<()> {
                     Some(&NodeAction::Rewrite {
                         lhs: TRRBTPattern::from([("main", toodee_pattern(1, 1, ["."]))]),
                         rhs: TRRBTPattern::from([("main", toodee_pattern(1, 1, ["X"]))])
-                    })
+                    }),
+                    "{:#?}",
+                    behavior_tree
                 );
                 assert_eq!(neighbors.next(), None);
             }

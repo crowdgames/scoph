@@ -17,8 +17,6 @@ pub mod interpreter;
 /// The bare neccessities to use scoph in a rust project
 pub mod prelude {
     use super::*;
-    pub use common::{BehaviorTree, TRRBTPattern};
+    pub use common::{BehaviorTree, TRRBTPattern, NodeIndex};
     pub use interpreter::Interpreter;
-
-    pub type NodeIndex = petgraph::graph::NodeIndex;
 }

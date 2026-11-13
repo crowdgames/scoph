@@ -1697,7 +1697,6 @@ dependencies = [
  "derive_more",
  "itertools 0.15.0",
  "ordermap",
- "petgraph",
  "pretty_assertions",
  "rand 0.10.3",
  "serde",

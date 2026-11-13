@@ -1,10 +1,9 @@
 use derive_more::Debug;
-use petgraph::graph::NodeIndex;
 use rand::{Rng, seq::IteratorRandom};
 use std::{collections::HashSet, ffi::CString, rc::Rc, str::FromStr};
 
 use crate::{
-    common::{NodeAction, PlayerId, TRRBTPattern},
+    common::{NodeAction, PlayerId, TRRBTPattern, NodeIndex},
     interpreter::{
         BehaviorTree, IError,
         transforms::{Transform, TransformStack},

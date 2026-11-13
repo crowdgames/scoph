@@ -1,4 +1,4 @@
-use petgraph::graph::NodeIndex;
+use crate::common::NodeIndex;
 use thiserror::Error;
 
 use crate::common::NodeAction;

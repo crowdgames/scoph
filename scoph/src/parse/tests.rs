@@ -11,7 +11,7 @@ fn load_json_from_test(filename: &str) -> Result<TRRBTDocument> {
 #[test]
 fn test_parsing_loop() -> Result<()> {
     let doc = load_json_from_test("loop.json")?;
-    assert_eq!(doc.name, "loop");
+    assert_eq!(doc.name.to_str().unwrap(), "loop");
 
     let mut root = DocNode::new(NodeAction::Order);
     root.add_child(DocNode::new(NodeAction::SetBoard {
@@ -50,7 +50,7 @@ fn test_parsing_loop() -> Result<()> {
 #[test]
 fn test_parsing_tic_tac_toe() -> Result<()> {
     let doc = load_json_from_test("tic-tac-toe.json")?;
-    assert_eq!(doc.name, "tic-tac-toe");
+    assert_eq!(doc.name.to_str().unwrap(), "tic-tac-toe");
 
     let mut root = DocNode::new(NodeAction::Order);
 
