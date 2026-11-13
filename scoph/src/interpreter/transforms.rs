@@ -1,6 +1,9 @@
-use std::{collections::HashSet, rc::Rc};
-
 use crate::common::{BehaviorTree, NodeAction, PlayerId, TRRBTPattern};
+use crate::prelude::*;
+use alloc::rc::Rc;
+use ordermap::OrderSet;
+
+type HashSet<T> = OrderSet<T, fnv::FnvBuildHasher>;
 
 #[derive(Debug, Clone)]
 pub enum Transform {
@@ -187,6 +190,6 @@ mod test {
             Some(orw.clone())
         );
 
-        assert_eq!(&stack.seen, &HashSet::from([orw]));
+        assert_eq!(&stack.seen, &HashSet::from_iter([orw]));
     }
 }

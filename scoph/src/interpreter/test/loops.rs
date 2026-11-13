@@ -915,3 +915,5 @@ fn test_append_cols_too_small() -> Result<()> {
 
     Ok(())
 }
+
+use crate::prelude::*;

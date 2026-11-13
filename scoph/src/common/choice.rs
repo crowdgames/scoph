@@ -1,3 +1,4 @@
+use crate::prelude::*;
 use ordermap::OrderMap;
 use toodee::Coordinate;
 
@@ -11,7 +12,7 @@ pub type MatchCoords = Vec<Coordinate>;
 
 /// An ordered map of [Rewrite]'s to lists of coordinates where they matched on the board.
 #[derive(Debug, Default, Eq, PartialEq)]
-pub struct PlayerChoices(OrderMap<Rewrite, MatchCoords>);
+pub struct PlayerChoices(OrderMap<Rewrite, MatchCoords, fnv::FnvBuildHasher>);
 
 impl PlayerChoices {
     /// Inserts a rewrite and list of coordinates. Will not be inserted if coords is empty.

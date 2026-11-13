@@ -3,17 +3,19 @@ mod stack;
 mod transforms;
 mod visitor;
 
-use std::rc::Rc;
+use alloc::rc::Rc;
 
 pub use err::IError;
+use rand::SeedableRng;
+use rand::rngs::SmallRng;
 use stack::Frame;
 pub use stack::Outcome;
 pub use visitor::StackFrameInfo;
 pub use visitor::Visitor;
 
 use crate::common::BehaviorTree;
-use crate::common::NodeAction;
-use petgraph::graph::NodeIndex;
+use crate::prelude::*;
+use crate::common::NodeIndex;
 
 use transforms::TransformStack;
 
@@ -40,6 +42,7 @@ pub struct Interpreter {
     passed_frames: Vec<Frame>,
     transform_stack: TransformStack,
     outcome: Option<Outcome>,
+    rng: SmallRng,
 }
 
 /// The status of an interpreter after a step.
@@ -70,6 +73,10 @@ impl Interpreter {
             player_choices: Default::default(),
             transform_stack: Default::default(),
             outcome: None,
+            rng: SmallRng::seed_from_u64(
+                // maybe find a better seeding method
+                42,
+            ),
         };
 
         out.push_frame(root);
@@ -150,7 +157,7 @@ impl Interpreter {
         let (rhs, (x, y)) = choices
             .get_index(rewrite_index)
             .map(|((_, rhs), coords)| (rhs, coords[match_index]))
-            .ok_or_else(|| IError::BadChoice)?;
+            .ok_or(IError::BadChoice)?;
 
         self.board.rewrite_at(x, y, rhs)?;
 
@@ -187,7 +194,7 @@ impl Interpreter {
         // peek at the top of the call stack, perform node actions to the tree/board. Provide a
         // call result indicating if the node succeeded.
         let call_result = if let Some(call) = self.execution_stack.last_mut() {
-            call.evaluate(&mut self.board, &mut self.transform_stack)?
+            call.evaluate(&mut self.board, &mut self.transform_stack, &mut self.rng)?
         } else {
             // stack is empty
             if self.outcome.is_none() {
@@ -324,3 +331,4 @@ impl Interpreter {
         (w as u32, h as u32)
     }
 }
+

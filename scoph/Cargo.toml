@@ -5,16 +5,41 @@ edition = "2024"
 description = "An implementation of the TRRBT language for use across multiple projects"
 
 [dependencies]
-anyhow = "1.0.104"
-derive_more = { version = "2.1.1", features = ["debug"] }
-itertools = "0.15.0"
-ordermap = "1.2.2"
-petgraph = { version = "0.8.3", features = ["serde-1"] }
-pretty_assertions = "1.4.1"
-rand = "0.10.3"
+anyhow = { version = "1.0.104", default-features = false }
+derive_more = { version = "2.1.1", default-features=false, features = ["debug"] }
+fnv = { version = "1.0.7", default-features = false }
+itertools = { version = "0.15.0", default-features = false, features = ["use_alloc"] }
+ordermap = { version = "1.2.2", default-features = false }
+rand = { version = "0.10.3", default-features = false, features = ["alloc"] }
 serde = { version = "1.0.229", default-features=false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0.151", default-features=false, features = ["alloc"] }
-serde_with = "3.23.0"
-strum = { version = "0.28.0", features = ["derive"] }
-thiserror = "2.0.21"
+serde_with = { version = "3.23.0", default-features=false, features = ["macros"] }
+strum = { version = "0.28.0", default-features = false, features = ["derive"] }
+thiserror = { version = "2.0.21", default-features = false }
 toodee = "0.6.2"
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"
+
+[features]
+std = [
+  "anyhow/std",
+  "derive_more/std",
+  "itertools/use_std",
+  "ordermap/std",
+  "fnv/std",
+  "rand/default",
+  "serde/std",
+  "serde_json/std",
+  "serde_with/std",
+  "strum/std",
+  "thiserror/std"
+
+]
+default = ["std"]
+
+# scoph/Cargo.toml
+[lints.clippy]
+std_instead_of_core = "warn"
+std_instead_of_alloc = "warn"
+alloc_instead_of_core = "warn"

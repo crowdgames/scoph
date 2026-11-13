@@ -1,10 +1,10 @@
+use crate::prelude::*;
+use alloc::{collections::BTreeSet, ffi::CString, rc::Rc, str::FromStr};
 use derive_more::Debug;
-use petgraph::graph::NodeIndex;
-use rand::seq::IteratorRandom;
-use std::{collections::HashSet, ffi::CString, rc::Rc, str::FromStr};
+use rand::{Rng, seq::IteratorRandom};
 
 use crate::{
-    common::{NodeAction, PlayerId, TRRBTPattern},
+    common::{NodeAction, NodeIndex, PlayerId, TRRBTPattern},
     interpreter::{
         BehaviorTree, IError,
         transforms::{Transform, TransformStack},
@@ -25,7 +25,7 @@ pub enum StackState {
         remaining: u32,
     },
     RandomTry {
-        played: HashSet<usize>,
+        played: BTreeSet<usize>,
         all_failed: bool,
     },
     Order {
@@ -42,7 +42,7 @@ pub enum StackState {
         transforms_list: Vec<Transform>,
         // transform index to apply
         transform: usize,
-        random_attempts: Option<HashSet<usize>>,
+        random_attempts: Option<BTreeSet<usize>>,
     },
     TransformLink {
         copied: bool,
@@ -62,7 +62,7 @@ impl StackState {
         Self::Transform {
             transforms_list,
             transform: Default::default(),
-            random_attempts: random.then(HashSet::new),
+            random_attempts: random.then(BTreeSet::new),
         }
     }
 }
@@ -235,11 +235,15 @@ impl Frame {
         }
     }
 
-    pub fn evaluate(
+    pub(crate) fn evaluate<R>(
         &mut self,
         board: &mut TRRBTPattern,
         transform_stack: &mut TransformStack,
-    ) -> Result<Eval, IError> {
+        rng: &mut R,
+    ) -> Result<Eval, IError>
+    where
+        R: Rng,
+    {
         use crate::common::NodeAction as N;
         match self.source.action() {
             N::Order => {
@@ -251,7 +255,7 @@ impl Frame {
 
                     Ok(Eval::Finished(any_success))
                 } else {
-                    let child_index = self.child as usize;
+                    let child_index = self.child;
                     Ok(Eval::Push(neighbors[child_index]))
                 }
             }
@@ -274,7 +278,7 @@ impl Frame {
                         *all_failed = true;
                     }
                 }
-                let child_index = self.child as usize;
+                let child_index = self.child;
                 Ok(Eval::Push(neighbors[child_index]))
             }
 
@@ -315,7 +319,7 @@ impl Frame {
                     .children()
                     .enumerate()
                     .filter(|(child, _)| !played.contains(child))
-                    .choose(&mut rand::rng())
+                    .choose(rng)
                 {
                     played.insert(new_played);
                     Eval::Push(child_index)
@@ -396,14 +400,12 @@ impl Frame {
                 Ok(Eval::Finished(true))
             }
 
-            N::Rewrite { lhs, rhs } => Ok(
-                if let Some((x, y)) = board.matches(lhs).choose(&mut rand::rng()) {
-                    board.rewrite_at(x, y, rhs)?;
-                    Eval::Finished(true)
-                } else {
-                    Eval::Finished(false)
-                },
-            ),
+            N::Rewrite { lhs, rhs } => Ok(if let Some((x, y)) = board.matches(lhs).choose(rng) {
+                board.rewrite_at(x, y, rhs)?;
+                Eval::Finished(true)
+            } else {
+                Eval::Finished(false)
+            }),
 
             N::RewriteAll { lhs, rhs } => {
                 let mut did_rw = false;
@@ -445,7 +447,7 @@ impl Frame {
             )),
 
             N::Player { pid } => {
-                let plwr = self.collect_player_rewrites(board, transform_stack)?;
+                let plwr = self.collect_player_rewrites(board, transform_stack, rng)?;
                 Ok(if plwr.is_empty() {
                     Eval::Finished(false)
                 } else {
@@ -513,10 +515,11 @@ impl Frame {
         }
     }
 
-    fn collect_player_rewrites(
+    fn collect_player_rewrites<R: Rng>(
         &self,
         board: &mut TRRBTPattern,
         transform_stack: &mut TransformStack,
+        rng: &mut R,
     ) -> Result<PlayerChoices, IError> {
         use NodeAction as N;
         let mut matches = PlayerChoices::default();
@@ -550,7 +553,7 @@ impl Frame {
                         }
 
                         if let Some(top) = virtual_stack.last_mut() {
-                            match top.evaluate(board, transform_stack)? {
+                            match top.evaluate(board, transform_stack, rng)? {
                                 Eval::Push(node_index) => {
                                     let Some(transformed) = transform_stack
                                         .apply_transforms(tree.get_node_action(node_index).clone())

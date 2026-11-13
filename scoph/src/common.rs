@@ -1,15 +1,15 @@
 mod choice;
 mod pattern;
 mod tree;
-
-use std::{ffi::CString, str::FromStr};
+use crate::prelude::*;
+use alloc::{ffi::CString, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 use serde_with::{NoneAsEmptyString, serde_as};
 
 pub use choice::{MatchCoords, PlayerChoices, Rewrite};
 pub use pattern::{TRRBTPattern, toodee_pattern};
-pub use tree::BehaviorTree;
+pub use tree::{BehaviorTree, NodeIndex};
 #[cfg(test)]
 mod test;
 
@@ -72,6 +72,7 @@ pub fn swap_chars(source: &str, what: &str, with: &str) -> String {
 #[serde_as]
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Info {
+    #[serde(default)]
     nid: String,
     #[serde_as(as = NoneAsEmptyString)]
     #[serde(default)]
@@ -100,7 +101,7 @@ impl Info {
     }
 
     pub fn comment(&self) -> Option<&str> {
-        self.comment.as_ref().map(String::as_str)
+        self.comment.as_deref()
     }
 }
 

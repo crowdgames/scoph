@@ -1,4 +1,4 @@
-use petgraph::graph::NodeIndex;
+use crate::common::NodeIndex;
 use thiserror::Error;
 
 use crate::common::NodeAction;
@@ -39,3 +39,5 @@ pub enum IError {
     #[error("Made a player choice that had no matching coordinate on the board")]
     BadChoice,
 }
+
+use crate::prelude::*;

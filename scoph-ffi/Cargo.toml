@@ -10,4 +10,9 @@ crate-type = ["staticlib"]
 doc = false
 
 [dependencies]
-scoph = { path = "../scoph" }
+scoph = { path = "../scoph", default-features = false }
+libc_alloc = "1"
+
+[features]
+std = ["scoph/std"]
+default = ["std"]
