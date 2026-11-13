@@ -1,4 +1,22 @@
-use std::ffi::{CStr, OsStr, c_char};
+#![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
+
+#[cfg(not(feature = "std"))]
+#[global_allocator]
+static ALLOCATOR: libc_alloc::LibcAlloc = libc_alloc::LibcAlloc;
+
+#[cfg(not(feature = "std"))]
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    // TODO
+    loop {}
+}
+
+use core::ffi::{CStr, c_char};
+use alloc::boxed::Box;
+
+#[cfg(feature = "std")]
+use std::ffi::OsStr;
 
 /// cbindgen:ignore
 use scoph::{
@@ -19,6 +37,7 @@ use error::ScophError;
 /// interpreter from memory with [`scoph_intrp_free`]. If you want to load an interpreter from json
 /// text directly, see [`scoph_intrp_load_json`].
 #[unsafe(no_mangle)]
+#[cfg(feature = "std")]
 pub extern "C" fn scoph_intrp_load(intrp: *mut *mut ScophIntrp, path: *const c_char) -> ScophError {
     let path = unsafe { CStr::from_ptr(path) };
     let path = unsafe { OsStr::from_encoded_bytes_unchecked(path.to_bytes()) };

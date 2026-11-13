@@ -1,6 +1,7 @@
 use toodee::Coordinate;
 
 use super::*;
+use crate::prelude::*;
 use anyhow::Result;
 use pretty_assertions::assert_eq;
 
@@ -345,3 +346,5 @@ fn test_append_colmuns_too_big() -> Result<()> {
 
     Ok(())
 }
+
+use crate::prelude::*;

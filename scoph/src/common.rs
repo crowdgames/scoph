@@ -1,8 +1,8 @@
 mod choice;
 mod pattern;
 mod tree;
-
-use std::{ffi::CString, str::FromStr};
+use crate::prelude::*;
+use alloc::{ffi::CString, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 use serde_with::{NoneAsEmptyString, serde_as};
@@ -101,7 +101,7 @@ impl Info {
     }
 
     pub fn comment(&self) -> Option<&str> {
-        self.comment.as_ref().map(String::as_str)
+        self.comment.as_deref()
     }
 }
 

@@ -940,6 +940,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
+name = "libc_alloc"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7581282928bc99698341d1de7590964c28db747c164eaac9409432a3eaed098a"
+
+[[package]]
 name = "libm"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1695,6 +1701,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "derive_more",
+ "fnv",
  "itertools 0.15.0",
  "ordermap",
  "pretty_assertions",
@@ -1711,6 +1718,7 @@ dependencies = [
 name = "scoph-ffi"
 version = "0.1.0"
 dependencies = [
+ "libc_alloc",
  "scoph",
 ]
 

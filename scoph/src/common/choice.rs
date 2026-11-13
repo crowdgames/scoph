@@ -1,9 +1,8 @@
+use crate::prelude::*;
 use ordermap::OrderMap;
 use toodee::Coordinate;
 
 use super::TRRBTPattern;
-
-use std::hash::RandomState as HashState;
 
 /// A 2-tuple of patterns. The left-hand side will be searched for on the board, and the right-hand
 /// side is the aforementioned's replacement.
@@ -13,7 +12,7 @@ pub type MatchCoords = Vec<Coordinate>;
 
 /// An ordered map of [Rewrite]'s to lists of coordinates where they matched on the board.
 #[derive(Debug, Default, Eq, PartialEq)]
-pub struct PlayerChoices(OrderMap<Rewrite, MatchCoords, HashState>);
+pub struct PlayerChoices(OrderMap<Rewrite, MatchCoords, fnv::FnvBuildHasher>);
 
 impl PlayerChoices {
     /// Inserts a rewrite and list of coordinates. Will not be inserted if coords is empty.

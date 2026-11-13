@@ -1,4 +1,4 @@
-use std::ffi::CString;
+use alloc::ffi::CString;
 
 use serde::{Deserialize, Serialize};
 
@@ -47,3 +47,5 @@ impl DocNode {
         self.children.get(i)
     }
 }
+
+use crate::prelude::*;

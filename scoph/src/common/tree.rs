@@ -1,21 +1,19 @@
-use std::{
-    ffi::{CStr, CString},
-    path::Path,
-    str::FromStr,
+use core::{
+    ffi::{CStr},
 };
+#[cfg(feature = "std")]
+use std::path::Path;
 
+use crate::prelude::*;
 use crate::{
     common::{Info, NodeAction},
     interpreter::IError,
     parse::{DocNode, TRRBTDocument},
 };
-use ::serde::Deserialize;
 use anyhow::anyhow;
 
 #[cfg(test)]
 mod test;
-
-mod serde;
 
 pub type NodeIndex = usize;
 type EdgeIndex = usize;
@@ -99,6 +97,7 @@ pub struct BehaviorTree {
 
 impl BehaviorTree {
     /// Finds a json file at the provided path and loads it
+    #[cfg(feature = "std")]
     pub fn load_from_json_file<T: AsRef<Path>>(path: T) -> anyhow::Result<Self> {
         let s = std::fs::read_to_string(path)?;
         Self::load_from_json_text(s.as_str()).map_err(|e| anyhow!("{}", e))
@@ -201,3 +200,4 @@ impl From<TRRBTDocument> for BehaviorTree {
         }
     }
 }
+

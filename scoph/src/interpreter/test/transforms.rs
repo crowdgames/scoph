@@ -132,3 +132,5 @@ fn test_x_swap_only_with_x_link() -> Result<()> {
     assert_eq!(intrp.outcome(), Some(&Outcome::Win("Jeremy".into())));
     Ok(())
 }
+
+use crate::prelude::*;

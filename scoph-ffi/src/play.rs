@@ -3,7 +3,7 @@ use crate::{ScophIntrp, error::ScophError, pattern::Pattern};
 use scoph::common::TRRBTPattern;
 
 use scoph::common::PlayerChoices;
-use std::ffi::{c_char, c_uint};
+use core::ffi::{c_char, c_uint};
 
 /// Represents the set of choices that the interpreter is waiting for the player to pick
 #[repr(C)]

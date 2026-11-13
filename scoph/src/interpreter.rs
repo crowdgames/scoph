@@ -3,7 +3,7 @@ mod stack;
 mod transforms;
 mod visitor;
 
-use std::rc::Rc;
+use alloc::rc::Rc;
 
 pub use err::IError;
 use rand::SeedableRng;
@@ -14,7 +14,7 @@ pub use visitor::StackFrameInfo;
 pub use visitor::Visitor;
 
 use crate::common::BehaviorTree;
-use crate::common::NodeAction;
+use crate::prelude::*;
 use crate::common::NodeIndex;
 
 use transforms::TransformStack;
@@ -157,7 +157,7 @@ impl Interpreter {
         let (rhs, (x, y)) = choices
             .get_index(rewrite_index)
             .map(|((_, rhs), coords)| (rhs, coords[match_index]))
-            .ok_or_else(|| IError::BadChoice)?;
+            .ok_or(IError::BadChoice)?;
 
         self.board.rewrite_at(x, y, rhs)?;
 
@@ -331,3 +331,4 @@ impl Interpreter {
         (w as u32, h as u32)
     }
 }
+

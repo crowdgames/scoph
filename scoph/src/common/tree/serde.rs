@@ -1,7 +1,7 @@
 use super::*;
 use ::serde::{
     Deserializer,
-    de::{DeserializeSeed, Error, Visitor},
+    de::{DeserializeSeed, Error},
 };
 use serde_json::Value;
 
@@ -55,3 +55,4 @@ where
     .deserialize(deserializer)?;
     Ok(out)
 }
+

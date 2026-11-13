@@ -1,4 +1,4 @@
-use std::ffi::{CStr, c_char, c_uint};
+use core::ffi::{CStr, c_char, c_uint};
 
 ///cbindgen:ignore
 use scoph::common::TRRBTPattern;

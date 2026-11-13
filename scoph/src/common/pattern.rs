@@ -1,7 +1,8 @@
-use std::collections::BTreeMap;
-use std::marker::PhantomData;
-use std::str::FromStr;
+use alloc::collections::BTreeMap;
+use core::marker::PhantomData;
+use core::str::FromStr;
 
+use crate::prelude::*;
 use itertools::Itertools;
 use serde::{
     Deserialize, Serialize,
@@ -13,14 +14,14 @@ use toodee::{Coordinate, CopyOps, TooDee, TooDeeOps, TooDeeOpsMut};
 use crate::common::swap_chars;
 use crate::interpreter::IError;
 
-use std::ffi::CString;
+use alloc::ffi::CString;
 
 type LayersAndPatterns = BTreeMap<String, TooDee<CString>>;
 
-pub fn toodee_pattern<'a, const N: usize>(
+pub fn toodee_pattern<const N: usize>(
     width: usize,
     height: usize,
-    flat_cells: [&'a str; N],
+    flat_cells: [&str; N],
 ) -> TooDee<String> {
     let v: Vec<_> = flat_cells.iter().map(ToString::to_string).collect();
     TooDee::from_vec(width, height, v)
@@ -55,8 +56,7 @@ impl TRRBTPattern {
                 layer_name.as_str(),
                 board
                     .rows()
-                    .into_iter()
-                    .map(|s| s.into_iter().map(|cs| cs.to_str().unwrap())),
+                    .map(|s| s.iter().map(|cs| cs.to_str().unwrap())),
             )
         })
     }
@@ -196,7 +196,7 @@ impl TRRBTPattern {
         x: usize,
         y: usize,
         layer_name: &str,
-    ) -> Result<*const std::ffi::c_char, IError> {
+    ) -> Result<*const core::ffi::c_char, IError> {
         self.0
             .get(layer_name)
             .ok_or(IError::MissingLayerOnSrc(layer_name.to_string()))
@@ -335,7 +335,7 @@ impl<'a, const N: usize> From<[(&'a str, TooDee<String>); N]> for TRRBTPattern {
             );
         }
         assert!(
-            core.iter().map(|(_, d)| d.size()).all_equal(),
+            core.values().map(|d| d.size()).all_equal(),
             "pattern layers must all be the same width and height"
         );
         Self(core)
@@ -381,7 +381,7 @@ impl<'de> Deserialize<'de> for TRRBTPattern {
         impl<'de> Visitor<'de> for TRRBTPatternVisitor {
             type Value = TRRBTPattern;
 
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
                 write!(formatter, "A map of 2D arrays")
             }
 
@@ -394,9 +394,7 @@ impl<'de> Deserialize<'de> for TRRBTPattern {
                     layers_and_patterns.insert(layer_name, map.next_value_seed(PatternText)?);
                 }
 
-                if layers_and_patterns
-                    .iter()
-                    .map(|(_, data)| data.size())
+                if layers_and_patterns.values().map(|data| data.size())
                     .all_equal()
                 {
                     Ok(TRRBTPattern(layers_and_patterns))
@@ -435,7 +433,7 @@ where
             {
                 type Value = usize;
 
-                fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
                     write!(formatter, "an array of strings")
                 }
 
@@ -469,7 +467,7 @@ where
     {
         type Value = TooDee<T>;
 
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
             formatter.write_str("A 2D Array with columns of even length")
         }
 
@@ -502,3 +500,4 @@ where
     let visitor = TooDeeVisitor(PhantomData);
     deserializer.deserialize_seq(visitor)
 }
+

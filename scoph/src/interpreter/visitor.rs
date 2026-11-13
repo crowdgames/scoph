@@ -1,6 +1,5 @@
-use std::ffi::CStr;
-
 use crate::common::NodeIndex;
+use core::ffi::CStr;
 
 use crate::{
     common::{PlayerId, TRRBTPattern},
@@ -62,21 +61,27 @@ pub type StackFrameInfo = (NodeIndex, u32);
 pub trait Visitor {
     /// Provides the name and description of the tree to be displayed however deemed fit.
     fn startup(&mut self, tree_name: &CStr, tree_description: &CStr) {
-        println!("= Name: ===============");
-        println!("{tree_name:?}");
-        println!("= Description: =========");
-        println!("{tree_description:?}");
+        #[cfg(feature = "std")]
+        {
+            println!("= Name: ===============");
+            println!("{tree_name:?}");
+            println!("= Description: =========");
+            println!("{tree_description:?}");
+        }
     }
 
     /// Provides a look into the current state of the tile map.
     fn view_board(&mut self, board: &TRRBTPattern) {
-        for (layer_name, layer_rows) in board.layers() {
-            println!("= {layer_name} ===========");
-            for row in layer_rows {
-                for cell in row {
-                    print!("{} ", cell);
+        #[cfg(feature = "std")]
+        {
+            for (layer_name, layer_rows) in board.layers() {
+                println!("= {layer_name} ===========");
+                for row in layer_rows {
+                    for cell in row {
+                        print!("{} ", cell);
+                    }
+                    println!();
                 }
-                println!("");
             }
         }
     }
@@ -88,41 +93,47 @@ pub trait Visitor {
         transform_stack: &[Transform],
         passed_frames: &[Frame],
     ) {
-        println!("- - - =====ES===== - - -");
-        for frame in call_stack {
-            print!("| ");
-            print!(
-                "action: {:?}, child: {:?}, state: {:?}",
-                frame.action(),
-                frame.child(),
-                frame.state()
-            );
-            println!(" |");
-        }
-        println!("==========\n");
-
-        if !transform_stack.is_empty() {
-            println!("TS: {:?}", transform_stack);
-        }
-
-        if !passed_frames.is_empty() {
-            println!("<----PS---->");
-            for frame in passed_frames {
+        #[cfg(feature = "std")]
+        {
+            println!("- - - =====ES===== - - -");
+            for frame in call_stack {
                 print!("| ");
                 print!(
-                    "action: {:?}, child: {:?}, state {:?}",
+                    "action: {:?}, child: {:?}, state: {:?}",
                     frame.action(),
                     frame.child(),
                     frame.state()
                 );
                 println!(" |");
             }
+            println!("==========\n");
+
+            if !transform_stack.is_empty() {
+                println!("TS: {:?}", transform_stack);
+            }
+
+            if !passed_frames.is_empty() {
+                println!("<----PS---->");
+                for frame in passed_frames {
+                    print!("| ");
+                    print!(
+                        "action: {:?}, child: {:?}, state {:?}",
+                        frame.action(),
+                        frame.child(),
+                        frame.state()
+                    );
+                    println!(" |");
+                }
+            }
+            println!();
         }
-        println!("");
     }
 
     fn present_choices(&mut self, player_id: &PlayerId, choices: &PlayerChoices) {
-        println!("PID:({:?}) {:?}", player_id, choices);
+        #[cfg(feature = "std")]
+        {
+            println!("PID:({:?}) {:?}", player_id, choices);
+        }
     }
 }
 
@@ -147,4 +158,3 @@ impl Visitor for Dummy {
 
     fn present_choices(&mut self, _player_id: &PlayerId, _choices: &PlayerChoices) {}
 }
-

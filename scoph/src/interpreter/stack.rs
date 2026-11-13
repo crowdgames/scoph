@@ -1,9 +1,10 @@
+use crate::prelude::*;
+use alloc::{collections::BTreeSet, ffi::CString, rc::Rc, str::FromStr};
 use derive_more::Debug;
 use rand::{Rng, seq::IteratorRandom};
-use std::{collections::HashSet, ffi::CString, rc::Rc, str::FromStr};
 
 use crate::{
-    common::{NodeAction, PlayerId, TRRBTPattern, NodeIndex},
+    common::{NodeAction, NodeIndex, PlayerId, TRRBTPattern},
     interpreter::{
         BehaviorTree, IError,
         transforms::{Transform, TransformStack},
@@ -24,7 +25,7 @@ pub enum StackState {
         remaining: u32,
     },
     RandomTry {
-        played: HashSet<usize>,
+        played: BTreeSet<usize>,
         all_failed: bool,
     },
     Order {
@@ -41,7 +42,7 @@ pub enum StackState {
         transforms_list: Vec<Transform>,
         // transform index to apply
         transform: usize,
-        random_attempts: Option<HashSet<usize>>,
+        random_attempts: Option<BTreeSet<usize>>,
     },
     TransformLink {
         copied: bool,
@@ -61,7 +62,7 @@ impl StackState {
         Self::Transform {
             transforms_list,
             transform: Default::default(),
-            random_attempts: random.then(HashSet::new),
+            random_attempts: random.then(BTreeSet::new),
         }
     }
 }
@@ -254,7 +255,7 @@ impl Frame {
 
                     Ok(Eval::Finished(any_success))
                 } else {
-                    let child_index = self.child as usize;
+                    let child_index = self.child;
                     Ok(Eval::Push(neighbors[child_index]))
                 }
             }
@@ -277,7 +278,7 @@ impl Frame {
                         *all_failed = true;
                     }
                 }
-                let child_index = self.child as usize;
+                let child_index = self.child;
                 Ok(Eval::Push(neighbors[child_index]))
             }
 

@@ -39,3 +39,5 @@ pub enum IError {
     #[error("Made a player choice that had no matching coordinate on the board")]
     BadChoice,
 }
+
+use crate::prelude::*;
