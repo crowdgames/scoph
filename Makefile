@@ -10,6 +10,11 @@ else ifeq($(OS_TYPE),Windows)
 	# TODO
 endif
 
+DEBUG ?=1
+ifeq ($(DEBUG),0)
+	CARGOFLAGS +=--release
+endif
+
 all: raylib-rewrites
 
 clean:
@@ -29,7 +34,7 @@ scoph: scoph-test
 	cargo build --manifest-path=scoph-ffi/Cargo.toml
 
 scoph-gba:
-	 cargo +nightly build --no-default-features --target thumbv4t-none-eabi -Zbuild-std=core,alloc --manifest-path=scoph-ffi/Cargo.toml
+	 cargo +nightly build --no-default-features --target thumbv4t-none-eabi -Zbuild-std=core,alloc --manifest-path=scoph-ffi/Cargo.toml $(CARGOFLAGS)
 
 scoph-test:
 	RUSTFLAGS="-A warnings" cargo test
