@@ -6,7 +6,6 @@ use std::{
 
 use super::*;
 use crate::{
-    common::toodee_pattern,
     interpreter::{
         transforms::Transform,
         visitor::{Bare, Dummy, Printer, StackTraceOnly},

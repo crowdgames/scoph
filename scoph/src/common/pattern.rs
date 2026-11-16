@@ -18,15 +18,6 @@ use alloc::ffi::CString;
 
 type LayersAndPatterns = BTreeMap<String, TooDee<CString>>;
 
-pub fn toodee_pattern<const N: usize>(
-    width: usize,
-    height: usize,
-    flat_cells: [&str; N],
-) -> TooDee<String> {
-    let v: Vec<_> = flat_cells.iter().map(ToString::to_string).collect();
-    TooDee::from_vec(width, height, v)
-}
-
 /// A key-value structure of layer names ([CString]s) and 2D arrays
 #[derive(Debug, Default, Hash, Clone, Serialize, PartialEq, Eq)]
 pub struct TRRBTPattern(LayersAndPatterns);

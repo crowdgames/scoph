@@ -7,8 +7,8 @@ use pretty_assertions::assert_eq;
 
 #[test]
 fn test_pattern_matches_single_char_and_layer() {
-    let board = pattern::TRRBTPattern::from([("main", toodee_pattern(6, 6, ["."; 36]))]);
-    let matchee = pattern::TRRBTPattern::from([("main", toodee_pattern(1, 1, ["."]))]);
+    let board = pattern::TRRBTPattern::from([("main", [["."; 6]; 6])]);
+    let matchee = pattern::TRRBTPattern::from([("main", [["."]])]);
 
     let board_matches: Vec<_> = board.matches(&matchee).collect();
 
@@ -24,29 +24,28 @@ fn test_pattern_matches_single_char_and_layer() {
 
 #[test]
 fn test_pattern_rewrite() -> Result<()> {
-    let mut dest = pattern::TRRBTPattern::from([("main", toodee_pattern(6, 6, ["."; 36]))]);
-    let rx = pattern::TRRBTPattern::from([("main", toodee_pattern(1, 1, ["X"]))]);
+    let mut dest = pattern::TRRBTPattern::from([("main", [["."; 6]; 6])]);
+    let rx = pattern::TRRBTPattern::from([("main", [["X"]])]);
     dest.rewrite_at(0, 0, &rx)?;
 
-    let ro = pattern::TRRBTPattern::from([("main", toodee_pattern(2, 2, ["O"; 4]))]);
+    let ro = pattern::TRRBTPattern::from([("main", [["O"; 2]; 2])]);
     dest.rewrite_at(1, 1, &ro)?;
 
-    let rb = pattern::TRRBTPattern::from([("main", toodee_pattern(3, 3, ["B"; 9]))]);
+    let rb = pattern::TRRBTPattern::from([("main", [["B"; 3]; 3])]);
     dest.rewrite_at(3, 3, &rb)?;
 
     assert_eq!(
         dest,
         TRRBTPattern::from([(
             "main",
-            toodee_pattern(
-                6,
-                6,
-                [
-                    "X", ".", ".", ".", ".", ".", ".", "O", "O", ".", ".", ".", ".", "O", "O", ".",
-                    ".", ".", ".", ".", ".", "B", "B", "B", ".", ".", ".", "B", "B", "B", ".", ".",
-                    ".", "B", "B", "B",
-                ]
-            )
+            [
+                ["X", ".", ".", ".", ".", "."],
+                [".", "O", "O", ".", ".", "."],
+                [".", "O", "O", ".", ".", "."],
+                [".", ".", ".", "B", "B", "B"],
+                [".", ".", ".", "B", "B", "B"],
+                [".", ".", ".", "B", "B", "B"],
+            ]
         )])
     );
 
@@ -56,96 +55,78 @@ fn test_pattern_rewrite() -> Result<()> {
 // transform tests
 #[test]
 fn test_rotated_90_tic_tac_toe() {
-    let og = pattern::TRRBTPattern::from([("main", toodee_pattern(1, 3, ["X", "X", "X"]))]);
+    let og = pattern::TRRBTPattern::from([("main", [["X", "X", "X"]])]);
 
     assert_eq!(
         og.rotated_90(),
-        TRRBTPattern::from([("main", toodee_pattern(3, 1, ["X", "X", "X"]))])
+        TRRBTPattern::from([("main", [["X"], ["X"], ["X"]])])
     );
 }
 
 #[test]
 fn test_rotate_90_tic_tac_toe_2() {
-    let og = TRRBTPattern::from([("main", toodee_pattern(3, 1, ["X", "X", "X"]))]);
+    let og = TRRBTPattern::from([("main", [["X", "X", "X"]])]);
 
     assert_eq!(
         og.rotated_90(),
-        TRRBTPattern::from([("main", toodee_pattern(1, 3, ["X", "X", "X"]))])
+        TRRBTPattern::from([("main", [["X"], ["X"], ["X"]])])
     );
 }
 
 #[test]
 fn test_rotate_90_tic_tac_toe_diag() {
-    let og = TRRBTPattern::from([(
-        "main",
-        toodee_pattern(3, 3, ["X", ".", ".", ".", "X", ".", ".", ".", "X"]),
-    )]);
+    let og = TRRBTPattern::from([("main", [["X", ".", "."], [".", "X", "."], [".", ".", "X"]])]);
 
     assert_eq!(
         og.rotated_90(),
-        TRRBTPattern::from([(
-            "main",
-            toodee_pattern(3, 3, [".", ".", "X", ".", "X", ".", "X", ".", "."])
-        )])
+        TRRBTPattern::from([("main", [[".", ".", "X"], [".", "X", "."], ["X", ".", "."]])])
     );
 }
 
 #[test]
 fn test_rotate_90_tic_tac_toe_diag2() {
-    let og = TRRBTPattern::from([(
-        "main",
-        toodee_pattern(3, 3, [".", ".", "X", ".", "X", ".", "X", ".", "."]),
-    )]);
+    let og = TRRBTPattern::from([("main", [[".", ".", "X"], [".", "X", "."], ["X", ".", "."]])]);
 
     assert_eq!(
         og.rotated_90(),
-        TRRBTPattern::from([(
-            "main",
-            toodee_pattern(3, 3, ["X", ".", ".", ".", "X", ".", ".", ".", "X"])
-        )])
+        TRRBTPattern::from([("main", [["X", ".", "."], [".", "X", "."], [".", ".", "X"]])])
     );
 }
 
 #[test]
 fn test_skew_tic_tac_toe() {
-    let og = TRRBTPattern::from([("main", toodee_pattern(3, 1, ["X", "X", "X"]))]);
+    let og = TRRBTPattern::from([("main", [["X", "X", "X"]])]);
     assert_eq!(
         og.skewed(),
-        TRRBTPattern::from([(
-            "main",
-            toodee_pattern(3, 3, ["X", ".", ".", ".", "X", ".", ".", ".", "X"])
-        )])
+        TRRBTPattern::from([("main", [["X", ".", "."], [".", "X", "."], [".", ".", "X"]])])
     )
 }
 
 // basing these tests on what the web editor already does
 #[test]
 fn test_skew_perfectly_vertical() {
-    let og = TRRBTPattern::from([("main", toodee_pattern(1, 3, ["X", "X", "X"]))]);
+    let og = TRRBTPattern::from([("main", [["X"], ["X"], ["X"]])]);
     assert_eq!(
         og.skewed(),
-        TRRBTPattern::from([("main", toodee_pattern(1, 3, ["X", "X", "X"]))])
+        TRRBTPattern::from([("main", [["X"], ["X"], ["X"]])])
     )
 }
 
 #[test]
 fn test_skew_multirow() {
-    let og = TRRBTPattern::from([(
-        "main",
-        toodee_pattern(3, 3, ["O", "X", "O", "O", "X", "O", "O", "X", "O"]),
-    )]);
+    let og = TRRBTPattern::from([("main", [["O", "X", "O"], ["O", "X", "O"], ["O", "X", "O"]])]);
 
     assert_eq!(
         og.skewed(),
         TRRBTPattern::from([(
             "main",
-            toodee_pattern(
-                3,
-                5,
-                [
-                    "O", ".", ".", "O", "X", ".", "O", "X", "O", ".", "X", "O", ".", ".", "O"
-                ]
-            )
+            [
+                ["O", ".", "."],
+                ["O", "X", "."],
+                ["O", "X", "O"],
+                [".", "X", "O"],
+                [".", ".", "O"]
+            ]
         )])
     );
 }
@@ -170,36 +151,27 @@ fn test_swap_only_on_existing() {
 
 #[test]
 fn test_swap_only_on_pattern_single_char() {
-    let og = TRRBTPattern::from([(
-        "main",
-        toodee_pattern(3, 3, ["O", "X", "O", "O", "X", "O", "O", "X", "O"]),
-    )]);
+    let og = TRRBTPattern::from([("main", [["O", "X", "O"], ["O", "X", "O"], ["O", "X", "O"]])]);
 
     assert_eq!(
         og.swap_chars("O", "X"),
-        TRRBTPattern::from([(
-            "main",
-            toodee_pattern(3, 3, ["X", "O", "X", "X", "O", "X", "X", "O", "X"]),
-        )])
+        TRRBTPattern::from([("main", [["X", "O", "X"], ["X", "O", "X"], ["X", "O", "X"]],)])
     );
 }
 
 #[test]
 fn test_swap_only_on_pattern_single_char_to_many_char() {
-    let og = TRRBTPattern::from([(
-        "main",
-        toodee_pattern(3, 3, ["O", "X", "O", "O", "X", "O", "O", "X", "O"]),
-    )]);
+    let og = TRRBTPattern::from([("main", [["O", "X", "O"], ["O", "X", "O"], ["O", "X", "O"]])]);
 
     assert_eq!(
         og.swap_chars("O", "OOO"),
         TRRBTPattern::from([(
             "main",
-            toodee_pattern(
-                3,
-                3,
-                ["OOO", "X", "OOO", "OOO", "X", "OOO", "OOO", "X", "OOO"]
-            ),
+            [
+                ["OOO", "X", "OOO"],
+                ["OOO", "X", "OOO"],
+                ["OOO", "X", "OOO"]
+            ]
         )])
     );
 }

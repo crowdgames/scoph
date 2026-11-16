@@ -1,4 +1,4 @@
-use crate::common::{TRRBTPattern, toodee_pattern};
+use crate::common::TRRBTPattern;
 
 use super::*;
 use anyhow::Result;
@@ -48,7 +48,7 @@ fn test_loading_from_text() -> Result<()> {
         Some(&NodeAction::SetBoard {
             pattern: TRRBTPattern::from([(
                 "main",
-                toodee_pattern(3, 3, ["A", "B", "C", "D", "E", "F", "G", "H", "I"])
+                [["A", "B", "C"], ["D", "E", "F"], ["G", "H", "I"]]
             ),])
         })
     );
@@ -116,14 +116,18 @@ fn test_complex_finishable_tree_from_text() -> Result<()> {
     let root_children: Vec<_> = behavior_tree.get_node_neighbors(root).collect();
     let expected_root_children_actions = vec![
         NodeAction::SetBoard {
-            pattern: TRRBTPattern::from([("main", toodee_pattern(6, 6, ["."; 36]))]),
+            pattern: TRRBTPattern::from([("main", [["."; 6]; 6])]),
         },
         NodeAction::LoopUntilAll,
     ];
     let mut i = 0;
     for ni in root_children {
         let na = behavior_tree.get_node_action(ni);
-        assert_eq!(na, &expected_root_children_actions[i], "{:#?}", behavior_tree);
+        assert_eq!(
+            na, &expected_root_children_actions[i],
+            "{:#?}",
+            behavior_tree
+        );
 
         match na {
             &NodeAction::SetBoard { .. } => {
@@ -134,8 +138,8 @@ fn test_complex_finishable_tree_from_text() -> Result<()> {
                 assert_eq!(
                     neighbors.next().map(|ni| behavior_tree.get_node_action(ni)),
                     Some(&NodeAction::Rewrite {
-                        lhs: TRRBTPattern::from([("main", toodee_pattern(1, 1, ["."]))]),
-                        rhs: TRRBTPattern::from([("main", toodee_pattern(1, 1, ["X"]))])
+                        lhs: TRRBTPattern::from([("main", [["."]])]),
+                        rhs: TRRBTPattern::from([("main", [["X"]])])
                     }),
                     "{:#?}",
                     behavior_tree
@@ -208,12 +212,10 @@ fn test_multiple_children() -> Result<()> {
         assert_eq!(
             behavior_tree.get_node_action(ni),
             &NodeAction::SetBoard {
-                pattern: TRRBTPattern::from([("main", toodee_pattern(1, 1, [pattern_text]))])
+                pattern: TRRBTPattern::from([("main", [[pattern_text]])])
             }
         )
     }
     Ok(())
 }
 
-
-use crate::prelude::*;

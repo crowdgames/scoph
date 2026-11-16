@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::{NoneAsEmptyString, serde_as};
 
 pub use choice::{MatchCoords, PlayerChoices, Rewrite};
-pub use pattern::{TRRBTPattern, toodee_pattern};
 pub use tree::{BehaviorTree, NodeIndex};
+pub use pattern::TRRBTPattern;
 #[cfg(test)]
 mod test;
 

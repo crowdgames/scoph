@@ -162,7 +162,7 @@ impl TransformStack {
 
 #[cfg(test)]
 mod test {
-    use crate::common::{TRRBTPattern, toodee_pattern};
+    use crate::common::TRRBTPattern;
 
     use super::*;
     use pretty_assertions::assert_eq;

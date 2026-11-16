@@ -35,7 +35,7 @@ fn test_only_set_board() -> Result<()> {
         cmp.board_states.as_slice(),
         &[TRRBTPattern::from([(
             "main",
-            toodee_pattern(3, 3, ["👁️‍🗨️", "_", "👁️‍🗨️", "_", "👃", "_", "<", "---", ">"])
+            [["👁️‍🗨️", "_", "👁️‍🗨️"], ["_", "👃", "_"], ["<", "---", ">"]]
         )])]
     );
 
@@ -83,7 +83,7 @@ fn test_loop_until_all_with_set_board() -> Result<()> {
     let mut expected_vec = vec![
         TRRBTPattern::from([(
             "main",
-            toodee_pattern(3, 3, ["👁️‍🗨️", "_", "👁️‍🗨️", "_", "👃", "_", "<", "---", ">"])
+            [["👁️‍🗨️", "_", "👁️‍🗨️"], ["_", "👃", "_"], ["<", "---", ">"]]
         )]);
         499
     ];
@@ -248,11 +248,9 @@ fn test_loop_that_should_end() -> Result<()> {
     }
     "#;
 
-    let expected_start_pattern: TRRBTPattern =
-        TRRBTPattern::from([("main", toodee_pattern(6, 6, ["."; 36]))]);
+    let expected_start_pattern: TRRBTPattern = TRRBTPattern::from([("main", [["."; 6]; 6])]);
 
-    let expected_final_pattern: TRRBTPattern =
-        TRRBTPattern::from([("main", toodee_pattern(6, 6, ["X"; 36]))]);
+    let expected_final_pattern: TRRBTPattern = TRRBTPattern::from([("main", [["X"; 6]; 6])]);
 
     let bt = BehaviorTree::load_from_json_text(ORDER_REPLACE_LOOP)?;
     let mut int = Interpreter::new(bt);
@@ -276,7 +274,7 @@ fn test_loop_that_should_end() -> Result<()> {
     // loop-until-all pushes first rewrite, stays the same
     assert_eq!(boards.next(), Some(expected_start_pattern));
 
-    let single_x = TRRBTPattern::from([("main", toodee_pattern(1, 1, ["X"]))]);
+    let single_x = TRRBTPattern::from([("main", [["X"]])]);
     let mut expected_x = 1;
     let mut push_frame = false;
     for _ in 0..(36usize * 2usize) {
