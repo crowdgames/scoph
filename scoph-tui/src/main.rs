@@ -5,7 +5,7 @@ use ratatui::style::Style;
 use ratatui::widgets::{Block, BorderType, Paragraph, Tabs};
 use ratatui::{DefaultTerminal, Frame};
 use scoph::prelude::*;
-use tui_prompts::{FocusState, Prompt, State, TextPrompt, TextState};
+use tui_prompts::{Prompt, State, TextPrompt, TextState};
 use tui_tree_widget::TreeState;
 
 use crate::commands::{ExtractError, ReplCommand, extract_command};

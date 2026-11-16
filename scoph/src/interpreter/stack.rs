@@ -39,7 +39,7 @@ pub enum StackState {
     },
     Transform {
         // list of transforms
-        transforms_list: Vec<Transform>,
+        transforms_list: Box<[Transform]>,
         // transform index to apply
         transform: usize,
         random_attempts: Option<BTreeSet<usize>>,
@@ -60,7 +60,7 @@ impl StackState {
             transforms_list.push(t);
         }
         Self::Transform {
-            transforms_list,
+            transforms_list: transforms_list.into_boxed_slice(),
             transform: Default::default(),
             random_attempts: random.then(BTreeSet::new),
         }

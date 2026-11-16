@@ -13,6 +13,10 @@ doc = false
 scoph = { path = "../scoph", default-features = false }
 libc_alloc = "1"
 
+[profile.release]
+lto = true
+
 [features]
+info = []
 std = ["scoph/std"]
-default = ["std"]
+default = ["std", "info"]

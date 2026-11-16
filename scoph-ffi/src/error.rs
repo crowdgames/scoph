@@ -57,6 +57,7 @@ impl From<IError> for ScophError {
 // actually tells users where in the tree the error occurred.
 
 /// Gives a more detailed string of the error code that can be printed
+#[cfg(feature = "info")]
 #[unsafe(no_mangle)]
 pub extern "C" fn scoph_strerror(error: ScophError) -> *const c_char {
     match error {

@@ -1,9 +1,6 @@
 use std::ffi::CStr;
 
 use scoph::common::TRRBTPattern;
-use scoph::interpreter::StackFrameInfo;
-use scoph::prelude::BehaviorTree;
-
 use scoph::interpreter::Visitor;
 
 pub(crate) struct ReplHistory {}
