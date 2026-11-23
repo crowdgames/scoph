@@ -133,4 +133,14 @@ fn test_x_swap_only_with_x_link() -> Result<()> {
     Ok(())
 }
 
-use crate::prelude::*;
+#[test]
+fn test_x_prune() -> Result<()> {
+    let mut intrp = Interpreter::new(BehaviorTree::load_from_json_file(
+        "../games/tests/x-prune.json",
+    )?);
+    intrp.run::<_, Bare>(&mut Printer)?;
+
+    assert_eq!(intrp.outcome(), Some(&Outcome::Tie));
+    assert_eq!(intrp.board, TRRBTPattern::from([("main", [[":-)"]])]));
+    Ok(())
+}

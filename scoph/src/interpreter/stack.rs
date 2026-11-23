@@ -96,7 +96,8 @@ impl<'a> From<&'a Source> for StackState {
             | N::MatchTimes { .. }
             | N::Player { .. }
             | N::AppendRows { .. }
-            | N::AppendColumns { .. } => Self::SingleAction,
+            | N::AppendColumns { .. }
+            | N::XPrune => Self::SingleAction,
             &N::XSkew { remorig } => Self::make_transform(remorig, [Transform::Skew], false),
             &N::XRotate { remorig } => Self::make_transform(remorig, [Transform::Rotate90], false),
             &N::XSpin { remorig } => Self::make_transform(
@@ -477,6 +478,8 @@ impl Frame {
                     Eval::TransformFinished
                 })
             }
+
+            N::XPrune => Ok(Eval::TransformFinished),
 
             action if action.is_transform() => {
                 let children: Vec<_> = self.source.children().collect();
