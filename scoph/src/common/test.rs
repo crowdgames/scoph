@@ -319,4 +319,40 @@ fn test_append_colmuns_too_big() -> Result<()> {
     Ok(())
 }
 
-use crate::prelude::*;
+#[test]
+fn test_row_mirror_not_centered() {
+    let pat = TRRBTPattern::from([("main", [["x", "x"], ["y", "y"]])]);
+    assert_eq!(
+        pat.row_mirror(false),
+        TRRBTPattern::from([("main", [["x", "x"], ["y", "y"], ["y", "y"], ["x", "x"],])])
+    );
+}
+
+#[test]
+fn test_row_mirror_centered() {
+    let pat = TRRBTPattern::from([("main", [["x", "x"], ["y", "y"]])]);
+    assert_eq!(
+        pat.row_mirror(true),
+        TRRBTPattern::from([("main", [["x", "x"], ["y", "y"], ["x", "x"],])])
+    );
+}
+
+#[test]
+fn test_col_mirror_not_centered() {
+    let pat = TRRBTPattern::from([("main", [["x", "y"], ["x", "y"]])]);
+
+    assert_eq!(
+        pat.col_mirror(false),
+        TRRBTPattern::from([("main", [["x", "y", "y", "x"], ["x", "y", "y", "x"],])])
+    );
+}
+
+#[test]
+fn test_col_mirror_centered() {
+    let pat = TRRBTPattern::from([("main", [["x", "y"], ["x", "y"]])]);
+
+    assert_eq!(
+        pat.col_mirror(true),
+        TRRBTPattern::from([("main", [["x", "y", "x"], ["x", "y", "x"],])])
+    );
+}

@@ -271,6 +271,71 @@ impl TRRBTPattern {
         )
     }
 
+    /// Mirrors the columns of a pattern into a new one. If `centered` is true, the last column will
+    /// not be duplicated.
+    ///
+    /// ex:
+    ///     centered: false
+    ///     - x y => x y y x
+    ///     centered: true
+    ///     - x y => x y x
+    pub fn col_mirror(&self, centered: bool) -> Self {
+        let mut out = LayersAndPatterns::new();
+
+        for (layer_name, data) in self.0.iter() {
+            let mut mirrored_data = TooDee::with_capacity(
+                (data.num_cols() * 2 - if centered { 1 } else { 0 }) * data.num_rows(),
+            );
+
+            for row in data.rows() {
+                let rows_iter = row.into_iter().chain({
+                    let mut mirrored_rows_iter = row.into_iter().rev();
+                    if centered {
+                        let _axis_cell = mirrored_rows_iter.next();
+                    }
+                    mirrored_rows_iter
+                });
+
+                mirrored_data.push_row(rows_iter.map(ToOwned::to_owned).collect_vec());
+            }
+
+            out.insert(layer_name.to_owned(), mirrored_data);
+        }
+
+        Self(out)
+    }
+
+    /// Mirrows the rows of a pattern into a new one. If `centered` is true, the last row will not
+    /// be duplicated.
+    ///
+    /// ex:
+    ///     centered: false
+    ///     - x / y => x / y / y / x
+    ///     centered: true
+    ///     - x / y => x / y / x
+    pub fn row_mirror(&self, centered: bool) -> Self {
+        let mut out = LayersAndPatterns::new();
+        for (layer_name, data) in self.0.iter() {
+            let mut mirrored_data = TooDee::with_capacity(
+                (data.num_rows() * 2 - if centered { 1 } else { 0 }) * data.num_cols(),
+            );
+
+            let rows = data.rows().chain({
+                let mut rows = data.rows().rev();
+                if centered {
+                    let _axis_row = rows.next();
+                }
+                rows
+            });
+
+            for row in rows {
+                mirrored_data.push_row(row.iter().map(ToOwned::to_owned));
+            }
+            out.insert(layer_name.to_owned(), mirrored_data);
+        }
+        Self(out)
+    }
+
     pub(crate) fn set_layer(
         &mut self,
         layer: &str,
@@ -385,7 +450,9 @@ impl<'de> Deserialize<'de> for TRRBTPattern {
                     layers_and_patterns.insert(layer_name, map.next_value_seed(PatternText)?);
                 }
 
-                if layers_and_patterns.values().map(|data| data.size())
+                if layers_and_patterns
+                    .values()
+                    .map(|data| data.size())
                     .all_equal()
                 {
                     Ok(TRRBTPattern(layers_and_patterns))
@@ -491,4 +558,3 @@ where
     let visitor = TooDeeVisitor(PhantomData);
     deserializer.deserialize_seq(visitor)
 }
-
